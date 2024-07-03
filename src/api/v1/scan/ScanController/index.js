@@ -2,9 +2,70 @@ import CassiaEndpoints from "../../../../thirdParty/cassia-rest-api/local/index.
 
 import extractProductInfo from "../../../../../helpers/extractProductNrInfo.js";
 
+import EventEmitter from "events";
+
+import { createWriteStream, existsSync, mkdirSync } from 'fs';
+import { resolve, join, dirname } from 'path';
+import { fileURLToPath } from 'url';
+import { Writable } from 'stream';
+import { promisify } from 'util';
+import { finished } from 'stream/promises';
+
+
+// Polyfill for __dirname in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+const IP = "192.168.40.1";
+
 
 const devices = {};
 
+const luxEvent = new EventEmitter();
+
+// const writeStream = fs.createWriteStream();
+
+
+// Promisify the stream write operation to use async/await
+luxEvent.on('lux', data => {
+    console.log(data)
+    const { macAddress, timeStamp, lux } = data;
+    // writeJsonData(macAddress, timeStamp, lux).catch(console.error);
+});
+
+// async function writeJsonData(macAddress, timeStamp, lux) {
+//     const baseDir = resolve(__dirname, '../../../../data/lux');
+//     const filePath = join(baseDir, `${macAddress}.json`);
+
+//     if (!existsSync(baseDir)) {
+//         mkdirSync(baseDir, { recursive: true });
+//     }
+
+//     const dataToWrite = JSON.stringify({ lux, timeStamp }) + '\n';
+
+//     // Use async function to write data to file
+//     if (existsSync(filePath)) {
+//         console.log("APPENDING...");
+//         await appendData(filePath, dataToWrite);
+//     } else {
+//         console.log("Writing new data...");
+//         await writeData(filePath, dataToWrite);
+//     }
+// }
+
+async function appendData(filePath, data) {
+    const writeStream = createWriteStream(filePath, { flags: 'a' });
+    writeStream.write(data);
+    await finished(writeStream);
+    console.log("Data appended");
+}
+
+async function writeData(filePath, data) {
+    const writeStream = createWriteStream(filePath);
+    writeStream.write(data);
+    await finished(writeStream);
+    console.log("New data written");
+}
 
 class ScanData {
 
@@ -395,7 +456,20 @@ class Device {
     }
 }
 
-const IP = "192.168.40.1";
+
+
+function extractLuxData(hexData) {
+
+    // Extract the last two characters
+    const hexString = hexData.slice(-2);
+
+    console.log(hexString, '*********')
+
+    // Convert the hexadecimal string to an integer
+    const lux = parseInt(hexString, 16);
+
+    return lux;
+}
 
 
 function sendMobileScanData(event, response) {
@@ -404,18 +478,32 @@ function sendMobileScanData(event, response) {
 
     const commonData = new BLECommonData(data.bdaddrs[0].bdaddr, data.bdaddrs[0].bdaddrType, data.evtType, data.rssi, data.chipId, data.name, data?.scanData, data?.adData);
 
-
     const scanData = commonData.scanData && new ScanData(commonData.scanData);
 
     const adData = commonData.advertisementData && new AdvertisementData(commonData.advertisementData, commonData.bleAddress);
 
     const device = new Device(commonData, scanData, adData);
 
-    if (commonData.bleAddress === '10:B9:F7:0F:9B:A9') {
 
+    // if (commonData.bleAddress === '10:B9:F7:0F:83:39') {
 
-        console.log(device)
-    }
+    //     if (data.adData) {
+
+    //         console.log(adData)
+
+    //         const macAddress = commonData.bleAddress.replace(/:/g, '-');
+
+    //         const timeStamp = new Date().toISOString();
+
+    //         const lux = extractLuxData(adData.mailFour);
+
+    //         console.log(macAddress, timeStamp, lux)
+
+    //         luxEvent.emit('lux', { macAddress, timeStamp, lux });
+
+    //     }
+
+    // }
 
 
     response.write(`data: ${JSON.stringify(device)}\n\n`);

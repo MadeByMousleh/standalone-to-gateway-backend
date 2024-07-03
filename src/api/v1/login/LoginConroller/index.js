@@ -66,7 +66,7 @@ export const disconnect = async (request, response, next) => {
         // Attempt to disconnect the device
         const result = await disconnectFromDevice(macAddress);
         return response.status(result.status).json(result);
-     
+
     } catch (error) {
         console.error('Error during disconnection:', error);
         return response.status(500).json({
@@ -75,7 +75,6 @@ export const disconnect = async (request, response, next) => {
         });
     }
 };
-
 
 export const login = async (request, response, next) => {
     try {
@@ -141,10 +140,6 @@ export const login = async (request, response, next) => {
     }
 };
 
-const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-
-
 export const connectMultiple = async (request, response, next) => {
 
     let i = 0;
@@ -187,7 +182,6 @@ export const connectMultiple = async (request, response, next) => {
     }
 }
 
-
 export const disconnectMultiple = async (request, response, next) => {
 
     try {
@@ -219,9 +213,6 @@ export const disconnectMultiple = async (request, response, next) => {
     }
 }
 
-
-// functions
-
 async function connectToDevice(macAddress) {
 
     const connectResult = await CassiaEndpoints.connectToBleDevice(IP, macAddress, 3);
@@ -233,7 +224,7 @@ async function disconnectFromDevice(macAddress) {
 
     const disconnectedResult = await CassiaEndpoints.disconnectFromBleDevice(IP, macAddress, 3);
     const msg = disconnectedResult.status === 200 ? 'Disconnected from the device' : 'Could not disconnect from device';
-    return createResponseWithMessage(macAddress, disconnectedResult, msg );
+    return createResponseWithMessage(macAddress, disconnectedResult, msg);
 }
 
 async function attemptLogin(macAddress) {
@@ -253,8 +244,8 @@ async function attemptLogin(macAddress) {
                 const loginReplyResult = loginReply.getResult();
 
 
-               
-                  return resolve(createResponseWithMessage(macAddress, result, loginReplyResult.msg, { pincodeRequired: loginReplyResult.pincodeRequired }))
+
+                return resolve(createResponseWithMessage(macAddress, result, loginReplyResult.msg, { pincodeRequired: loginReplyResult.pincodeRequired }))
             }
         })
     })
