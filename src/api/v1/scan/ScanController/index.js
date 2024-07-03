@@ -113,21 +113,19 @@ class AdvertisementData {
     source;
     sourceType;
     wirelessFunction;
-    mail;
+    mailOne;
+    mailTwo;
+    mailThree;
+    mailFour;
     tw;
     pushButtonEvent;
     pushButtonNumber;
     pirEvent;
     bleButtonMac;
     padding;
-    timeStamp = null;
+    advertisementTimeStamp
 
     constructor(hexString, macAddress) {
-
-
-        // console.log(macAddress)
-        if (macAddress === '10:B9:F7:0F:9B:87')
-            console.log(hexString.replace(/(.{2})/g, '$1-').slice(0, -1));
 
         if (hexString.length > 0) {
             // Flags
@@ -142,23 +140,28 @@ class AdvertisementData {
             this.sourceType = Number(`0x${hexString.slice(16, 18)}`);
             this.wirelessFunction = Number(`0x${hexString.slice(18, 20)}`);
 
-            // [00-00-00-00-00-00-00-00-00]
-            this.mail = hexString.slice(20, 38);
-            this.tw = hexString.slice(38, 40);
+            // [00-00-00-00-00-00-00-00-00-00-00-00]
+            this.mailOne = hexString.slice(20, 26);
+            this.mailTwo = hexString.slice(26, 32);
+            this.mailThree = hexString.slice(32, 38);
+            this.mailFour = hexString.slice(38, 44);
+
+            this.tw = hexString.slice(44, 46);
 
             // [00-00-08-00-00-00]
-            this.pushButtonEvent = hexString.slice(40, 42);
-            this.pushButtonNumber = hexString.slice(42, 44);
-            this.pirEvent = hexString.slice(44, 46);
-            this.bleButtonMac = hexString.slice(46, 56);
+            this.pushButtonEvent = hexString.slice(46, 48);
+            this.pushButtonNumber = hexString.slice(48, 50);
+            this.pirEvent = hexString.slice(50, 52);
+            this.bleButtonMac = hexString.slice(52, 58);
 
             // [00-00-00-00-00]
-            this.padding = hexString.slice(56, 66);
+            this.padding = hexString.slice(58, 68);
             this.macAddress = macAddress;
+            this.advertisementTimeStamp = new Date().getTime();
 
             if (this.pirEvent === '08') {
                 const options = { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: 'numeric' };
-                this.timeStamp = new Date().toLocaleDateString('en-US', options);
+                // this.timeStamp = new Date().toLocaleDateString('en-US', options);
             }
         }
     }
@@ -181,16 +184,11 @@ class AdvertisementData {
     // 01 = Source Type (Sec/push-button/master)
     // 00 = Wireless function
 
-    // [00-00-00-00-00-00-00-00-00]
-    // 00 = Mail
-    // 00 = Mail
-    // 00 = Mail
-    // 00 = Mail
-    // 00 = Mail
-    // 00 = Mail
-    // 00 = Mail
-    // 00 = Mail
-    // 00 = TW
+    // [00-00-00-00-00-00-00-00-00-00-00-00]
+    // 000000 = Mail 1 
+    // 000000 = Mail 2
+    // 000000 = Mail 3
+    // 000000 = Mail 4
 
     // [00-00-08-00-00-00]
     // 00 = Push button event
@@ -406,11 +404,19 @@ function sendMobileScanData(event, response) {
 
     const commonData = new BLECommonData(data.bdaddrs[0].bdaddr, data.bdaddrs[0].bdaddrType, data.evtType, data.rssi, data.chipId, data.name, data?.scanData, data?.adData);
 
+
     const scanData = commonData.scanData && new ScanData(commonData.scanData);
 
-    const adData = commonData.advertisementData && new AdvertisementData(commonData.advertisementData);
+    const adData = commonData.advertisementData && new AdvertisementData(commonData.advertisementData, commonData.bleAddress);
 
     const device = new Device(commonData, scanData, adData);
+
+    if (commonData.bleAddress === '10:B9:F7:0F:9B:A9') {
+
+
+        console.log(device)
+    }
+
 
     response.write(`data: ${JSON.stringify(device)}\n\n`);
 
@@ -418,7 +424,9 @@ function sendMobileScanData(event, response) {
 
 export const ScanForBleDevices = (request, response, next) => {
 
-    const scanSSE = CassiaEndpoints.scanForBleDevices(IP, request, response, (event) => sendMobileScanData(event, response));
+    let listenMode = request.query['listenMode'];
+
+    const scanSSE = CassiaEndpoints.scanForBleDevices(IP, request, response, (event) => sendMobileScanData(event, response), listenMode);
 
     const headers = {
         "Content-Type": "text/event-stream",

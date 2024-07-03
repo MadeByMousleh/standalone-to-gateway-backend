@@ -19,20 +19,20 @@ let deleteConfig = {
 
 const CassiaEndpoints = {
 
-    connectToBleDevice:  async (gatewayIp, macAddress, retries) => {
+    connectToBleDevice:  async (gatewayIp, macAddress, retries = 3) => {
         return await makeApiRequestWithRetry(`http://${gatewayIp}/gap/nodes/${macAddress}/connection`, postConfig, retries);
     },
 
-    disconnectFromBleDevice:  async (gatewayIp, macAddress, retries) => {
+    disconnectFromBleDevice:  async (gatewayIp, macAddress, retries = 3) => {
         return await makeApiRequestWithRetry(`http://${gatewayIp}/gap/nodes/${macAddress}/connection`, deleteConfig, retries);
     },
 
-    writeBleMessage: async (gatewayIp, macAddress, handle, message, queryParams, retries) => {
+    writeBleMessage: async (gatewayIp, macAddress, handle, message, queryParams, retries = 3) => {
         return await makeApiRequestWithRetry(`http://${gatewayIp}/gatt/nodes/${macAddress}/handle/${handle}/value/${message}${queryParams}`, getConfig, retries);
     },   
 
-     scanForBleDevices: async (gatewayIp, request, response, onData) => {
-        return listenForSSE(`http://${gatewayIp}/gap/nodes?event=1&filter_mac=10:B9:F7*&active=1&report_interval=1000&timestamp=1`,request, response, onData);
+     scanForBleDevices: async (gatewayIp, request, response, onData, active=1) => {
+        return listenForSSE(`http://${gatewayIp}/gap/nodes?event=1&filter_mac=10:B9:F7*&active=${active}&report_interval=1000&timestamp=1`,request, response, onData);
     },
 
 }

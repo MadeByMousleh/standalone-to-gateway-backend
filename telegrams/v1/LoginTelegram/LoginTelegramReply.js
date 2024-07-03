@@ -19,6 +19,8 @@ class LoginTelegramReply {
         this.totalLength = value.slice(6, 10);
         this.crc16 = value.slice(10, 14);
         this.loginResult = value.slice(14, 16);
+
+        console.log(this.loginResult)
     }
 
     swapBytes(bytes) {

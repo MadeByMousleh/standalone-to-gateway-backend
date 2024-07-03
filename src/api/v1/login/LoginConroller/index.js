@@ -51,40 +51,37 @@ export const connect = async (request, response, next) => {
 };
 
 export const disconnect = async (request, response, next) => {
-
     const macAddress = request.body?.macAddress;
 
-    if (!macAddress) return response.status(400).json({
-        error: "Bad Request",
-        message: `Missing required parameter {macAddress} `
-    });
-
-    let result = await CassiaEndpoints.disconnectFromBleDevice(IP, macAddress, 3)
-
-    if (result.status === 200) {
-        return response.status(200).json({
-            macAddress,
-            data: 'OK',
-            time: new Date().getTime(),
-            retires: result.retries,
-        })
+    // Check if macAddress is provided
+    if (!macAddress) {
+        return response.status(400).json({
+            error: "Bad Request",
+            message: "Missing required parameter {macAddress}"
+        });
     }
 
-    return response.status(500).json({
-        macAddress,
-        data: 'Failed',
-        time: new Date().getTime(),
-        retires: result.retries,
-    });
+    try {
 
+        // Attempt to disconnect the device
+        const result = await disconnectFromDevice(macAddress);
+        return response.status(result.status).json(result);
+     
+    } catch (error) {
+        console.error('Error during disconnection:', error);
+        return response.status(500).json({
+            error: error,
+            message: "An unexpected error occurred during disconnection"
+        });
+    }
+};
 
-}
 
 export const login = async (request, response, next) => {
-
     try {
         const { macAddress, pincode } = request.body;
 
+        // Check if macAddress is provided
         if (!macAddress) {
             return response.status(400).json({
                 error: "Bad Request",
@@ -92,42 +89,57 @@ export const login = async (request, response, next) => {
             });
         }
 
+        // Attempt to connect to the device
         const connectResult = await connectToDevice(macAddress);
 
-        if (connectResult.status === 200) {
+        if (connectResult.status !== 200) {
 
-            const { status, responseBody } = await attemptLogin(macAddress)
+            return response.status(connectResult.status).json(connectResult.responseBody);
 
-            if (responseBody.loginResponse.pincodeRequired && !pincode) {
-
-                let disconnected = await CassiaEndpoints.disconnectFromBleDevice(IP, macAddress, 3)
-
-                if (disconnected.status === 200) {
-                    return response.status(status).json({ status, responseBody });
-                }
-            }
-
-            const checkPincodeResponse = await checkPincode(pincode, macAddress);
-
-            if (!checkPincodeResponse.responseBody.pincodeAccepted) {
-
-                let disconnected = await CassiaEndpoints.disconnectFromBleDevice(IP, macAddress, 3)
-            }
-
-            return response.status(checkPincodeResponse.status).json(checkPincodeResponse);
         }
 
-        return response.status(connectResult.status).json(connectResult.responseBody);
+        // Attempt to log in to the device
+        const loginResult = await attemptLogin(macAddress);
+
+        if (loginResult.status !== 200) {
+
+            return response.status(loginResult.status).json([connectResult, loginResult]);
+        }
+
+        // Check if pincode is required and not provided
+        if (loginResult.pincodeRequired && !pincode) {
+
+            const disconnectResult = await CassiaEndpoints.disconnectFromBleDevice(IP, macAddress);
+
+            return response.status(disconnectResult.status).json([connectResult, loginResult, disconnectResult]);
+
+        }
+
+        // Handle pincode verification if required
+        if (loginResult.pincodeRequired) {
+
+            const pinCodeResult = await checkPincode(pincode, macAddress);
+
+            if (!pinCodeResult.pincodeAccepted) {
+
+                const disconnectResult = await CassiaEndpoints.disconnectFromBleDevice(IP, macAddress);
+
+                return response.status(disconnectResult.status).json([connectResult, loginResult, pinCodeResult, disconnectResult]);
+            }
+            return response.status(pinCodeResult.status).json([connectResult, loginResponseBody, pinCodeResult]);
+        }
+
+        // Return success response if no pincode is required
+        return response.status(200).json([connectResult, loginResult]);
 
     } catch (error) {
         console.error('Error:', error);
         return response.status(500).json({
-            error: "Internal Server Error",
+            error: error,
             message: "An unexpected error occurred"
         });
     }
 };
-
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -181,11 +193,11 @@ export const disconnectMultiple = async (request, response, next) => {
     try {
 
         const macAddresses = request.body?.macAddresses;
-        
+
         let results = [];
-        
-        for (let i = 0; i < macAddresses.length; ) {
-            
+
+        for (let i = 0; i < macAddresses.length;) {
+
             const mac = macAddresses[i];
 
             const result = await disconnectFromDevice(mac);
@@ -208,34 +220,20 @@ export const disconnectMultiple = async (request, response, next) => {
 }
 
 
-
-
 // functions
 
 async function connectToDevice(macAddress) {
 
     const connectResult = await CassiaEndpoints.connectToBleDevice(IP, macAddress, 3);
-
-    console.log(connectResult)
-
-    return {
-        status: connectResult.status,
-        responseBody: {
-            connectResponse: createResponse(macAddress, connectResult)
-        }
-    };
+    const msg = connectResult.status === 200 ? 'Connection Achieved' : 'Connection failed';
+    return createResponseWithMessage(macAddress, connectResult, msg)
 }
 
 async function disconnectFromDevice(macAddress) {
 
     const disconnectedResult = await CassiaEndpoints.disconnectFromBleDevice(IP, macAddress, 3);
-
-    return {
-        status: disconnectedResult.status,
-        responseBody: {
-            connectResponse: createResponse(macAddress, disconnectedResult)
-        }
-    };
+    const msg = disconnectedResult.status === 200 ? 'Disconnected from the device' : 'Could not disconnect from device';
+    return createResponseWithMessage(macAddress, disconnectedResult, msg );
 }
 
 async function attemptLogin(macAddress) {
@@ -254,16 +252,9 @@ async function attemptLogin(macAddress) {
 
                 const loginReplyResult = loginReply.getResult();
 
-                const responseBody = {
 
-                    loginResponse: createResponseWithMessage(macAddress, result, loginReplyResult.msg, { pincodeRequired: loginReplyResult.pincodeRequired })
-
-                };
-
-                return resolve({
-                    status: result.status,
-                    responseBody: responseBody
-                });
+               
+                  return resolve(createResponseWithMessage(macAddress, result, loginReplyResult.msg, { pincodeRequired: loginReplyResult.pincodeRequired }))
             }
         })
     })
