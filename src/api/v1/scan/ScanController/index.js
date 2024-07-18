@@ -1,10 +1,10 @@
 import CassiaEndpoints from "../../../../thirdParty/cassia-rest-api/local/index.js";
 
-import extractProductInfo from "../../../../../helpers/extractProductNrInfo.js";
+import productNumberHelper from "../../../../../helpers/extractProductNrInfo.js";
 
 import EventEmitter from "events";
 
-import { createWriteStream, existsSync, mkdirSync } from 'fs';
+import { createWriteStream, existsSync, mkdirSync, readdirSync, statSync } from 'fs';
 import { resolve, join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { Writable } from 'stream';
@@ -67,6 +67,39 @@ async function writeData(filePath, data) {
     console.log("New data written");
 }
 
+
+function listFilesInFolder(folderPath) {
+    try {
+
+        const files = readdirSync(folderPath);
+
+        return files;
+
+        // files.forEach(file => {
+
+        //     const fullPath = path.join(folderPath, file);
+
+        //     const stats = statSync(fullPath);
+
+        //     if (stats.isFile()) {
+
+        //         console.log(file);
+
+        //     } else if (stats.isDirectory()) {
+
+        //         listFilesInFolder(fullPath); // Uncomment this line if you want to list files in subdirectories too
+
+        //     }
+
+        // });
+    } catch (error) {
+        console.error(`Error reading folder: ${error.message}`);
+    }
+}
+
+const currentWorkingDirectory = process.cwd();
+
+
 class ScanData {
 
     constructor(hexString) {
@@ -78,7 +111,9 @@ class ScanData {
         this.companyId = hexString.slice(4, 8);
 
         this.macAddress = hexString.slice(8, 20).match(/.{2}/g).join(":");
+
         this.rawProductNumber = hexString.slice(20, 50);
+
         this.productNumber = this.getTextProductNumber();
 
         this.networkId = hexString.slice(50, 52);
@@ -86,7 +121,16 @@ class ScanData {
         this.lockedInfo = hexString.slice(52, 54);
 
         this.reserved = hexString.slice(54, 56);
+
         this.name = this.getName();
+
+        this.productNumberInfo = productNumberHelper.productNumberToObject[this.productNumber];
+
+        this.shortname = this.productNumberInfo.DetectorShortDescription + ' ' + this.productNumberInfo.DetectorType;
+
+        this.firmwaresAvailable = listFilesInFolder(`${currentWorkingDirectory}/firmwares/${this.shortname.slice(0, 3)}`).map((version, index) => {
+            return { key: version, label: version }
+        })
 
         // this.rawProductNumber = this.getMappedProductNumber(hexString);
         // this.sensorInfo = this.getSensorInfo(hexString)
@@ -111,6 +155,7 @@ class ScanData {
     getRefinedProductNumber() {
         return this.refinedProductNumber;
     }
+
     getTextProductNumber() {
         const asciiProductNumber = this.hexToAscii(this.rawProductNumber);
         if (asciiProductNumber.includes("353-")) {
@@ -119,7 +164,7 @@ class ScanData {
         }
 
         const detectorInfo =
-            extractProductInfo.numberToProductNumberConverter[
+            productNumberHelper.numberToProductNumberConverter[
             +`${Number("0x" + this.rawProductNumber.slice(0, 2))} `
             ];
         // console.log(detectorInfo)
