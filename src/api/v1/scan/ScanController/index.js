@@ -73,6 +73,11 @@ function listFilesInFolder(folderPath) {
 
         const files = readdirSync(folderPath);
 
+        if(!files) 
+            {
+                return [];
+            }
+
         return files;
 
         // files.forEach(file => {
@@ -126,10 +131,10 @@ class ScanData {
 
         this.productNumberInfo = productNumberHelper.productNumberToObject[this.productNumber];
 
-        this.shortname = this.productNumberInfo.DetectorShortDescription + ' ' + this.productNumberInfo.DetectorType;
+        this.shortname = this.productNumberInfo && this.productNumberInfo.DetectorShortDescription + ' ' + this.productNumberInfo.DetectorType;
 
-        this.firmwaresAvailable = listFilesInFolder(`${currentWorkingDirectory}/firmwares/${this.shortname.slice(0, 3)}`).map((version, index) => {
-            return { key: version, label: version }
+        this.firmwaresAvailable = this.shortname && listFilesInFolder(`${currentWorkingDirectory}/firmwares/${this.shortname.slice(0, 3)}`).map((version, index) => {
+            return { key: `${version}-${this.macAddress}`, label: version }
         })
 
         // this.rawProductNumber = this.getMappedProductNumber(hexString);
@@ -508,8 +513,6 @@ function extractLuxData(hexData) {
     // Extract the last two characters
     const hexString = hexData.slice(-2);
 
-    console.log(hexString, '*********')
-
     // Convert the hexadecimal string to an integer
     const lux = parseInt(hexString, 16);
 
@@ -524,6 +527,12 @@ function sendMobileScanData(event, response) {
     const commonData = new BLECommonData(data.bdaddrs[0].bdaddr, data.bdaddrs[0].bdaddrType, data.evtType, data.rssi, data.chipId, data.name, data?.scanData, data?.adData);
 
     const scanData = commonData.scanData && new ScanData(commonData.scanData);
+
+    if (commonData.bleAddress === "10:B9:F7:0F:6D:25") {
+
+        console.log(commonData.advertisementData)
+
+    }
 
     const adData = commonData.advertisementData && new AdvertisementData(commonData.advertisementData, commonData.bleAddress);
 

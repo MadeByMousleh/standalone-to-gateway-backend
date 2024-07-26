@@ -23,13 +23,13 @@ export const listenForSSE = (url,request, response, onMessageCb) => {
         // response.write(`data: ${JSON.stringify({ error: 'EventSource error occurred' })}\n\n`);
     };
 
-    // request.on("close", () => {
+    request.on("close", () => {
 
-    //     eventSource.close();
+        eventSource.close();
 
-    //     console.log("Eventsource at BLE-gateway is now closed");
+        console.log("Eventsource at BLE-gateway is now closed");
 
-    // });
+    });
     
     return eventSource;
 }

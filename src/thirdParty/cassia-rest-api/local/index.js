@@ -31,9 +31,26 @@ const CassiaEndpoints = {
         return await makeApiRequestWithRetry(`http://${gatewayIp}/gatt/nodes/${macAddress}/handle/${handle}/value/${message}${queryParams}`, getConfig, retries);
     },   
 
+    checkForCharacteristic: async (gatewayIp, request, response, onData, active=1) => {
+        return listenForSSE(`http://${gatewayIp}/gap/nodes?event=1&filter_mac=10:B9:F7*&active=${active}&report_interval=1000&timestamp=1`,request, response, onData);
+    },
+
+    getConnectionList:  async (gatewayIp, retries = 3) => {
+        return await makeApiRequestWithRetry(`http://${gatewayIp}/gap/nodes?connection_state=connected`, getConfig, retries);
+    },
+
+
+    // SSE
+
      scanForBleDevices: async (gatewayIp, request, response, onData, active=1) => {
         return listenForSSE(`http://${gatewayIp}/gap/nodes?event=1&filter_mac=10:B9:F7*&active=${active}&report_interval=1000&timestamp=1`,request, response, onData);
     },
+
+    listenForConnections: async (gatewayIp, request, response, onData) => {
+        return listenForSSE(`http://${gatewayIp}/management/nodes/connection-state`,request, response, onData);
+    }
+
+
 
 }
 

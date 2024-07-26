@@ -213,6 +213,14 @@ export const disconnectMultiple = async (request, response, next) => {
     }
 }
 
+
+export async function getConnectionList(request, response, next) {
+   
+    const result = await CassiaEndpoints.getConnectionList(IP);
+    console.log(result);
+    return response.send(result);
+}
+
 async function connectToDevice(macAddress) {
 
     const connectResult = await CassiaEndpoints.connectToBleDevice(IP, macAddress, 3);
@@ -279,6 +287,8 @@ async function checkPincode(pincode, macAddress) {
         })
     })
 }
+
+
 
 function createResponse(macAddress, result) {
     return {

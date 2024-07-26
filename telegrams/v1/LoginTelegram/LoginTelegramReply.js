@@ -13,14 +13,11 @@ class LoginTelegramReply {
     loginResult
 
     constructor(value) {
-        console.log(value);
         this.protocolVersion = value.slice(0, 2);
         this.telegramType = value.slice(2, 6);
         this.totalLength = value.slice(6, 10);
         this.crc16 = value.slice(10, 14);
         this.loginResult = value.slice(14, 16);
-
-        console.log(this.loginResult)
     }
 
     swapBytes(bytes) {

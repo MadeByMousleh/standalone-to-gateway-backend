@@ -5,11 +5,14 @@ import {
     connect, 
     disconnect, 
     connectMultiple, 
-    disconnectMultiple 
+    disconnectMultiple, 
+    getConnectionList
 } from "../LoginConroller/index.js";
 
 
 const loginRouter = express.Router();
+
+loginRouter.get('/connection-list', getConnectionList);
 
 loginRouter.post('/connect', connect);
 
