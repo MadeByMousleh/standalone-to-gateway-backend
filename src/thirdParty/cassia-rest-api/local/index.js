@@ -39,7 +39,6 @@ const CassiaEndpoints = {
         return await makeApiRequestWithRetry(`http://${gatewayIp}/gap/nodes?connection_state=connected`, getConfig, retries);
     },
 
-
     // SSE
 
      scanForBleDevices: async (gatewayIp, request, response, onData, active=1) => {
