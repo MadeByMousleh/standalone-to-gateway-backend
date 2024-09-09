@@ -18,6 +18,25 @@ export const connectionSSE = (request, response, next) => {
 }
 
 
+export const upgradeStatusSSE = (request, response, next) => {
+    
+    const headers = {
+        "Content-Type": "text/event-stream",
+        Connection: "keep-alive",
+        "Cache-Control": "no-cache",
+    };
+
+    response.writeHead(200, headers);
+}
+
+
+const receiveUpgradeData = (data) => {
+
+    progressController[data.mac] = data.progress;
+
+   
+}
+
 
 const sendConnectionData = (event, response) => {
 

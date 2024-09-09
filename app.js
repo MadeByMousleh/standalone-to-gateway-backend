@@ -939,9 +939,13 @@ app.get(
 app.put(
     "/detector/:productNumber/:mac/zones/:zoneNr",
     (req, response, next) => {
+
         const params = req.params;
+
         const getUserConfigTelegram = new GetUserConfigTelegram().create();
+
         const { zone } = req.body;
+
 
         axios(
             `http://${IP}/gatt/nodes/${params.mac}/handle/19/value/${getUserConfigTelegram}?noresponse=1`,

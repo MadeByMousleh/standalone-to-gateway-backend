@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Function to make API request with retry
-const makeApiRequestWithRetry = async function makeApiRequestWithRetry(url, config, maxRetries = 3) {
+const makeApiRequestWithRetry = async function makeApiRequestWithRetry(url, config, maxRetries = 5) {
     let retries = 0;
 
     while (retries < maxRetries) {
@@ -27,7 +27,7 @@ const makeApiRequestWithRetry = async function makeApiRequestWithRetry(url, conf
 
             } else if (error.request) {
 
-                console.error('Request failed: no response received');
+                console.error('Request failed: no response received' ,url);
 
             } else {
 
@@ -36,7 +36,7 @@ const makeApiRequestWithRetry = async function makeApiRequestWithRetry(url, conf
 
             if (retries === maxRetries - 1 ) {
 
-                console.log('Max retries reached, returning error information');
+                console.log('Max retries reached, returning error information', url);
 
                 return {
                     data: error.response ? error.response.data : null,
@@ -49,7 +49,7 @@ const makeApiRequestWithRetry = async function makeApiRequestWithRetry(url, conf
             }
 
             // Exponential backoff before retrying
-            await new Promise(resolve => setTimeout(resolve, 2 ** retries * 300));
+            await new Promise(resolve => setTimeout(resolve, 2 ** retries * 500));
 
             retries++;
         }

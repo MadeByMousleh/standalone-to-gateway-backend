@@ -2,7 +2,7 @@ const LoginResult = {
     0: { bleSpecMsg: 'LOGIN NACK', msg: 'Login failed', ack: false, pincodeRequired: false },
     1: { bleSpecMsg: 'LOGIN ACK. No pincode required', msg: 'Login succeeded', ack: true, pincodeRequired: false },
     2: { bleSpecMsg: 'LOGIN ACK. Pincode Required', msg: 'A pincode is required to be able to login to the detector', ack: true, pincodeRequired: true },
-    3: { bleSpecMsg: 'Login.Ack. Open Period Active. No Pincode Required.', msg: 'Open period is currently active', ack: false, pincodeRequired: false }
+    3: { bleSpecMsg: 'Login.Ack. Open Period Active. No Pincode Required.', msg: 'Open period is currently active', ack: true, pincodeRequired: false }
 }
 
 class LoginTelegramReply {

@@ -5,11 +5,25 @@ import productNumberHelper from "../../../../../helpers/extractProductNrInfo.js"
 import EventEmitter from "events";
 
 import { createWriteStream, existsSync, mkdirSync, readdirSync, statSync } from 'fs';
-import { resolve, join, dirname } from 'path';
+import path, { resolve, join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { Writable } from 'stream';
 import { promisify } from 'util';
 import { finished } from 'stream/promises';
+
+import { InfluxDB, Point } from '@influxdata/influxdb-client';
+import { error } from "console";
+
+const token = 'vV_E03gDMHwmt1r4242KfR7Gc_oOjdCQKdtS65Q7G5Ysz9f6jz-2hd4ubuYufslPvoPYgouPuHudaOF9ledLwg=='
+const url = 'http://localhost:8086'
+
+const client = new InfluxDB({ url, token })
+
+
+let org = `Wygwam`
+let bucket = `standalone-to-bms`
+
+let writeClient = client.getWriteApi(org, bucket, 'ns')
 
 
 // Polyfill for __dirname in ES modules
@@ -18,17 +32,81 @@ const __dirname = dirname(__filename);
 
 const IP = "192.168.40.1";
 
+const firmware = {};
 
 const devices = {};
 
 const luxEvent = new EventEmitter();
+
+
+function logCurrentTime() {
+    const now = new Date();
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+
+    return `${hours}:${minutes}:${seconds}`;
+}
+
+
+function writePir(macAddress) {
+
+    // console.log("Writing point", logCurrentTime());
+    try {
+
+        let point = new Point('Movement')
+            .tag("macAddress", macAddress)
+            .intField('isPirDetected', 1)
+        writeClient.writePoint(point)
+    } catch (err) {
+        console.log(err)
+    } finally {
+        writeClient.flush();
+
+    }
+}
+
+function writeLux(macAddress, lux) {
+
+    // console.log("Writing Lux data", lux, logCurrentTime());
+    try {
+
+        let point = new Point('Lux')
+            .tag("macAddress", macAddress)
+            .intField('lux-level', lux)
+        writeClient.writePoint(point)
+    } catch (err) {
+        console.log(error)
+    } finally {
+        writeClient.flush();
+
+    }
+}
+
+function writeIsLightOn(macAddress) {
+
+    // console.log("Writing is light on", logCurrentTime());
+    try {
+        let point = new Point('Light On')
+            .tag("macAddress", macAddress)
+            .intField('light-on', 1)
+        writeClient.writePoint(point)
+    } catch (err) {
+        console.log(error)
+    }
+    finally {
+        writeClient.flush();
+
+    }
+}
+
 
 // const writeStream = fs.createWriteStream();
 
 
 // Promisify the stream write operation to use async/await
 luxEvent.on('lux', data => {
-    console.log(data)
+    // console.log(data)
     const { macAddress, timeStamp, lux } = data;
     // writeJsonData(macAddress, timeStamp, lux).catch(console.error);
 });
@@ -67,39 +145,147 @@ async function writeData(filePath, data) {
     console.log("New data written");
 }
 
+function listFilesInFolder(folderPath, detectorType) {
 
-function listFilesInFolder(folderPath) {
+    if (firmware[detectorType]) {
+        return firmware[detectorType]
+    }
+
+    let arrayOfFolders = []
+    let array = [];
+
     try {
 
         const files = readdirSync(folderPath);
 
-        if(!files) 
-            {
-                return [];
-            }
+        if (!files) {
+            return [];
+        }
 
-        return files;
+        files.forEach(file => {
 
-        // files.forEach(file => {
+            const fullPath = path.join(folderPath, file);
 
-        //     const fullPath = path.join(folderPath, file);
+            arrayOfFolders.push(fullPath);
 
-        //     const stats = statSync(fullPath);
+        })
 
-        //     if (stats.isFile()) {
+        arrayOfFolders.forEach(folder => {
+            array.push({
+                detectorType,
+                title: folder.slice(folder.length - 4, folder.length),
+                folder,
+                key: folder,
+                value: folder,
+                children: getFiles(folder, detectorType, folder.slice(folder.length - 4, folder.length)),
+            })
+        })
 
-        //         console.log(file);
 
-        //     } else if (stats.isDirectory()) {
+        // console.log(array)
 
-        //         listFilesInFolder(fullPath); // Uncomment this line if you want to list files in subdirectories too
+        firmware[detectorType] = array;
 
-        //     }
+        return firmware[detectorType];
 
-        // });
+
     } catch (error) {
         console.error(`Error reading folder: ${error.message}`);
     }
+}
+
+
+const getFiles = (folderPath, detectorType, version) => {
+
+    let arrayOfFiles = []
+
+    try {
+
+        const files = readdirSync(folderPath);
+
+        if (!files) {
+
+            return [];
+
+        }
+
+        files.forEach(file => {
+
+            const fullPath = path.join(folderPath, file);
+
+            if (file.includes('AP4')) {
+
+                if (detectorType.includes('48') || detectorType.includes('47')) {
+
+
+                    arrayOfFiles.push({
+                        key: fullPath,
+                        value: fullPath,
+                        title: "Sensor",
+                    });
+                }
+            }
+
+            if (file.includes('AP2')) {
+
+                if (detectorType.includes('48') || detectorType.includes('47')) {
+                    arrayOfFiles.push({
+                        key: fullPath,
+                        value: fullPath,
+                        title: file
+                    });
+                }
+            }
+
+
+            if (file.includes('BL')) {
+                arrayOfFiles.push({
+                    key: `${fullPath}-${version}`,
+                    value: `${fullPath}-${version}`,
+                    title: "Boot loader"
+                });
+            }
+
+
+
+            if (file.includes('AP1') && (detectorType.includes('42') || detectorType.includes('41'))) {
+                arrayOfFiles.push({
+                    key: fullPath,
+                    value: fullPath,
+                    title: "Sensor"
+                });
+            }
+
+            if (file.includes('AP3') && (detectorType.includes('46') || detectorType.includes('49'))) {
+                arrayOfFiles.push({
+                    key: fullPath,
+                    value: fullPath,
+                    title: "Sensor"
+                });
+            }
+
+        })
+
+        return arrayOfFiles;
+
+    } catch (error) {
+        console.error(`Error reading folder: ${error.message}`);
+    }
+}
+
+function getFirmwarePaths(version, productType, currentDirectorPath) {
+
+    const type = productType.slice(0, 3);
+
+    if (version.includes('BL')) {
+        return `./firmwares/${type}/${version}/${version.replace(/\./g, '')}.cyacd`
+    }
+
+    if (type === 'P46' || type === 'P42' || type === 'P48') {
+        return `./firmwares/${type}/${version}/353AP3${version.replace(/\./g, '')}.cyacd`
+    }
+
+
 }
 
 const currentWorkingDirectory = process.cwd();
@@ -131,14 +317,10 @@ class ScanData {
 
         this.productNumberInfo = productNumberHelper.productNumberToObject[this.productNumber];
 
-        this.shortname = this.productNumberInfo && this.productNumberInfo.DetectorShortDescription + ' ' + this.productNumberInfo.DetectorType;
+        this.shortname = this.productNumberInfo && this.productNumberInfo.DetectorShortDescription + ' ' + this.productNumberInfo.DetectorType || "P48";
 
-        this.firmwaresAvailable = this.shortname && listFilesInFolder(`${currentWorkingDirectory}/firmwares/${this.shortname.slice(0, 3)}`).map((version, index) => {
-            return { key: `${version}-${this.macAddress}`, label: version }
-        })
+        this.firmwaresAvailable = listFilesInFolder(`${currentWorkingDirectory}/firmwares/${this.shortname.slice(0, 3)}`, this.shortname.slice(0, 3));
 
-        // this.rawProductNumber = this.getMappedProductNumber(hexString);
-        // this.sensorInfo = this.getSensorInfo(hexString)
     }
 
     hexToAscii(hex) {
@@ -247,28 +429,74 @@ class AdvertisementData {
 
             // [A6-03-01-00]
             this.sequenceNumber = Number(`0x${hexString.slice(12, 14)}`);
+
             this.source = Number(`0x${hexString.slice(14, 16)}`);
+
             this.sourceType = Number(`0x${hexString.slice(16, 18)}`);
+
             this.wirelessFunction = Number(`0x${hexString.slice(18, 20)}`);
 
             // [00-00-00-00-00-00-00-00-00-00-00-00]
             this.mailOne = hexString.slice(20, 26);
+
             this.mailTwo = hexString.slice(26, 32);
+
             this.mailThree = hexString.slice(32, 38);
+
             this.mailFour = hexString.slice(38, 44);
 
             this.tw = hexString.slice(44, 46);
 
             // [00-00-08-00-00-00]
             this.pushButtonEvent = hexString.slice(46, 48);
+
             this.pushButtonNumber = hexString.slice(48, 50);
+
             this.pirEvent = hexString.slice(50, 52);
+
             this.bleButtonMac = hexString.slice(52, 58);
 
             // [00-00-00-00-00]
             this.padding = hexString.slice(58, 68);
             this.macAddress = macAddress;
             this.advertisementTimeStamp = new Date().getTime();
+
+            if (this.tw === '08') {
+                writePir(this.macAddress);
+            }
+
+            if (this.mailFour !== "000000" && this.mailFour) {
+
+                if (this.mailFour) {
+
+
+                    let luxLevel = Number("0x" + this.mailFour.slice(2, 6));
+
+                    console.log(luxLevel, 'LUX level')
+
+                    if (luxLevel !== 1023) {
+
+                        writeLux(this.macAddress, Number("0x" + this.mailFour.slice(2, 6)))
+
+                    }
+
+                    let isLightOn = Number(this.mailFour.slice(0, 2));
+
+                    console.log(isLightOn, 'Light is on')
+
+                    if (isLightOn === 1) {
+
+                        writeIsLightOn(macAddress);
+                    }
+
+                }
+            }
+
+
+            // if (macAddress === '10:B9:F7:10:00:AF') {
+            //     console.log(hexString)
+            // }
+
 
             if (this.pirEvent === '08') {
                 const options = { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: 'numeric' };
@@ -277,42 +505,6 @@ class AdvertisementData {
         }
     }
 
-
-    // console.log(header, 'header');
-    // console.log(payload, 'payload');
-
-    // [02-01-06-1B-FF-FE-05]-[A6-03-01-00]-[00-00-00-00-00-00-00-00-00]-[00-00-08-00-00-00]-[00-00-00-00-00]
-    // Header
-    // [02-01-06-1B-FF-FE-05]-
-    // 02 = Flags indicating BLE General Discoverable Mode
-    // 01 = Length of the Flags field
-    // 06 = Data Type indicating the Shortened Local Name
-    // 1BFFFE05 = Bluetooth MAC Address (Little Endian)
-
-    // [A6-03-01-00]
-    // A6 = Sequence number
-    // 03 = Source (network)
-    // 01 = Source Type (Sec/push-button/master)
-    // 00 = Wireless function
-
-    // [00-00-00-00-00-00-00-00-00-00-00-00]
-    // 000000 = Mail 1 
-    // 000000 = Mail 2
-    // 000000 = Mail 3
-    // 000000 = Mail 4
-
-    // [00-00-08-00-00-00]
-    // 00 = Push button event
-    // 00 = Push button number
-    // 00 = Pir event
-    // 00 = BLE button mac (Last three as the others are known)
-
-    // [00-00-00-00-00]
-    // 00 = Padding
-    // 00 = Padding
-    // 00 = Padding
-    // 00 = Padding
-    // 00 = Padding
 }
 
 
@@ -336,157 +528,9 @@ class BLECommonData {
         this.name = name;
         this.scanData = scanData;
         this.advertisementData = advertisementData;
+
     }
 }
-
-// class Device {
-//     scanData;
-//     advertisementData;
-//     signalStrength;
-//     name;
-//     eventType;
-//     chipId;
-//     macAddress;
-//     macAddressType;
-//     isConnected;
-//     asciiName;
-//     is230V;
-//     isSecondary;
-//     rawProductNumber;
-
-//     constructor(jsonData) {
-
-//         this.scanData = (jsonData.scanData && new ScanData(jsonData.scanData)) || null;
-
-//         this.productNumber = this.scanData && this.scanData.productNumber;
-
-//         this.advertisementData = (jsonData.adData && new AdvertisementData(jsonData.adData, jsonData.bdaddrs[0].bdaddr)) || null;
-
-//         this.signalStrength = jsonData?.rssi;
-
-//         this.eventType = jsonData?.evtType;
-
-//         this.chipId = jsonData?.chipId;
-
-//         this.macAddress = jsonData.bdaddrs[0].bdaddr;
-
-//         this.macAddressType = jsonData.bdaddrs[0].bdaddrType;
-
-//         // this.refinedProductNumber = extractProductInfo.extractProductInfo(this.scanData?.productNumber) ?? 'Unknown';
-
-//         this.isConnected = this.eventType === 2;
-
-//     }
-
-//     #sensorSeries = {
-//         0: "Not yet in use",
-//         1: "Mini",
-//         2: "Outdoor",
-//         3: "Not yet in use",
-//         4: "Not yet in use",
-//         5: "Not yet in use",
-//         6: "MR",
-//         7: "LR",
-//         8: "HC",
-//         9: "Accessories",
-//     };
-
-//     #technology = {
-//         0: "230V",
-//         1: "NHC",
-//         2: "24 V",
-//         3: "KNX",
-//         4: "Not yet in use",
-//         5: "DALI",
-//         6: "DALI wireless",
-//         7: "On/Off wireless",
-//         8: "Not yet in use",
-//         9: "No value",
-//     };
-
-//     #mounting = {
-//         0: "Ceiling, flush box",
-//         1: "ceiling, flush",
-//         2: "ceiling, surface",
-//         3: "Wall",
-//         4: "Wall flush",
-//         5: "Not yet in use",
-//         6: "Not yet in use",
-//         7: "Not yet in use",
-//         8: "Not yet in use",
-//         9: "No value",
-//     };
-
-//     #output = {
-//         0: "Slave",
-//         1: "1 ch",
-//         2: "2 ch",
-//         3: "47",
-//         4: "48",
-//         5: "Not yet in use",
-//         6: "Not yet in use",
-//         7: "Not yet in use",
-//         8: "Not yet in use",
-//         9: "No value",
-//     };
-
-//     #detection = {
-//         0: "No value",
-//         1: "M",
-//         2: "P",
-//         3: "True presence",
-//         4: "Not yet in use",
-//         5: "Not yet in use",
-//         6: "Not yet in use",
-//         7: "Not yet in use",
-//         8: "No value",
-//         9: "No value",
-//     };
-
-//     #variant = {
-//         0: "Wago 1 cable",
-//         1: "White",
-//         2: "Black",
-//         3: "Silver",
-//         4: "Wago 2 cables",
-//         5: "Wieland 1 cable",
-//         6: "Wieland 2 cables",
-//         7: "Not yet in use",
-//         8: "Remote control",
-//         9: "No value",
-//     };
-
-//     #getOutput = (technology, output) => {
-//         if (output !== "Slave") return output;
-//         return technology !== "230V" ? "46" : "41";
-//     };
-
-//     #getIsSecondary = () => { };
-
-//     getName = () => {
-//         try {
-//             const number = this.scanData.productNumber.split("-");
-//             if (number[0] !== "353") return this.scanData.productNumber;
-//             const usableNumber = number[1] || "";
-//             const usableNumberArr = usableNumber.split("");
-//             const correctOutput = this.#getOutput(
-//                 this.#technology[usableNumberArr[1]],
-//                 this.#output[usableNumberArr[3]]
-//             );
-//             const translated = `${this.#detection[usableNumberArr[4]]
-//                 }${correctOutput} (${this.#sensorSeries[usableNumberArr[0]]}), ${this.#technology[usableNumberArr[1]]
-//                 }`;
-//             return translated;
-//         } catch (err) {
-//             return "Unknown";
-//         }
-//     };
-
-//     hasName = () => {
-//         return !this.scanData.rawProductNumber === "FF";
-//     };
-// }
-
 
 class Device {
     commonBleData;
@@ -506,8 +550,6 @@ class Device {
     }
 }
 
-
-
 function extractLuxData(hexData) {
 
     // Extract the last two characters
@@ -519,7 +561,6 @@ function extractLuxData(hexData) {
     return lux;
 }
 
-
 function sendMobileScanData(event, response) {
 
     let data = JSON.parse(event.data)
@@ -528,42 +569,56 @@ function sendMobileScanData(event, response) {
 
     const scanData = commonData.scanData && new ScanData(commonData.scanData);
 
-    if (commonData.bleAddress === "10:B9:F7:0F:6D:25") {
+    const adData = commonData.advertisementData && new AdvertisementData(commonData.advertisementData, commonData.bleAddress);
 
-        console.log(commonData.advertisementData)
+    if (commonData.bleAddress === '10:B9:F7:0F:6C:B8' || commonData.bleAddress === '10:B9:F7:0F:6C:AC' || commonData.bleAddress === '10:B9:F7:66:66:66') {
 
+        if (adData) {
+
+            if (adData.source) {
+
+                console.log(adData.source, commonData.bleAddress);
+            }
+        }
     }
 
-    const adData = commonData.advertisementData && new AdvertisementData(commonData.advertisementData, commonData.bleAddress);
+
+    // 0201061BFFFE05CB1901000000000000000000000000080000000000000000
+
+    // AdvertisementData {
+    //     flags: '02',
+    //     header: '01061BFFFE',
+    //     sequenceNumber: 5,
+    //     source: 203,
+    //     sourceType: 25,
+    //     wirelessFunction: 1,
+    //     mailOne: '000000',
+    //     mailTwo: '000000',
+    //     mailThree: '000000',
+    //     mailFour: '000000',
+    //     tw: '08',
+    //     pushButtonEvent: '00',
+    //     pushButtonNumber: '00',
+    //     pirEvent: '00',
+    //     bleButtonMac: '000000',
+    //     padding: '0000',
+    //     advertisementTimeStamp: 1724231075160,
+    //     macAddress: '10:B9:F7:0F:6C:AC'
+    //   } 0201061BFFFE05CD1901000000000000000000000000080000000000000000
+
 
     const device = new Device(commonData, scanData, adData);
 
+    // if (commonData.bleAddress === '10:B9:F7:10:61:A5') {
 
-    // if (commonData.bleAddress === '10:B9:F7:0F:83:39') {
-
-    //     if (data.adData) {
-
-    //         console.log(adData)
-
-    //         const macAddress = commonData.bleAddress.replace(/:/g, '-');
-
-    //         const timeStamp = new Date().toISOString();
-
-    //         const lux = extractLuxData(adData.mailFour);
-
-    //         console.log(macAddress, timeStamp, lux)
-
-    //         luxEvent.emit('lux', { macAddress, timeStamp, lux });
-
-    //     }
-
+    //     console.log(device.advertisementData)
     // }
+
 
 
     response.write(`data: ${JSON.stringify(device)}\n\n`);
 
 }
-
 export const ScanForBleDevices = (request, response, next) => {
 
     let listenMode = request.query['listenMode'];
@@ -577,6 +632,17 @@ export const ScanForBleDevices = (request, response, next) => {
     };
 
     response.writeHead(200, headers);
+
+
+    response.on('close', () => {
+        console.log('Client closed the connection, stopping BLE scan.');
+
+        scanSSE.close();
+
+        // End the response
+        response.end()
+
+    });
 
 
 };

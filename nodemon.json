@@ -1,0 +1,8 @@
+{
+
+    "events": {
+      "crash": "npx kill-port 8888",
+      "restart": "echo 'App crashed! Restarting...'"
+    }
+
+}

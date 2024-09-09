@@ -57,50 +57,59 @@ export default class NextGenService {
 
     async attemptLogin(macAddress) {
 
-        return new Promise(async (resolve, reject) => {
-
-            console.log("Creating telegram...\n\n")
-
-            const hexLoginValue = new LoginTelegram().create();
-
-            console.log("Writing telegram through Cassia gateway api... \n\n")
-
-            const result = await CassiaEndpoints.writeBleMessage(this.IP, macAddress, 19, hexLoginValue, '?noresponse=1');
-
-            if (result.status !== 200) {
-
-                console.log("Writing telegram FAILED - Please make sure you are connected to the same network as the gateway...\n\n")
-
-                return false;
-
-            }
-
-            console.log("Telegram successfully accepted - awaiting answer....\n\n")
+        try {
 
 
-            this.cassiaListener.onData(macAddress, data => {
+            return new Promise(async (resolve, reject) => {
 
-                console.log("Preparing to understand login reply...\n\n")
+                console.log("Creating telegram...\n\n")
 
-                const loginReply = new LoginTelegramReply(data)
+                const hexLoginValue = new LoginTelegram().create();
 
-                if (loginReply.telegramType === '1100') {
+                console.log("Writing telegram through Cassia gateway api... \n\n")
 
-                    console.log("Listening for answer...\n\n")
+                const result = await CassiaEndpoints.writeBleMessage(this.IP, macAddress, 19, hexLoginValue, '?noresponse=1');
 
-                    const loginReplyResult = loginReply.getResult();
+                if (result.status !== 200) {
 
-                    console.log("Answer received...", loginReplyResult, '\n\n');
+                    console.log("Writing telegram FAILED - Please make sure you are connected to the same network as the gateway...\n\n")
 
-                    if (loginReplyResult.ack && loginReplyResult.pincodeRequired) {
-                        throw new Error("This detector is locked and a pincode is required to open it\n\n");
-                    }
-                    console.log("resolving...", loginReplyResult, '\n\n');
+                    return resolve({ ack: false });
 
-                    return resolve(loginReplyResult);
                 }
+
+                console.log("Telegram successfully accepted - awaiting answer....\n\n")
+
+
+                this.cassiaListener.onData(macAddress, data => {
+
+                    console.log("Preparing to understand login reply...\n\n")
+
+                    const loginReply = new LoginTelegramReply(data)
+
+                    if (loginReply.telegramType === '1100') {
+
+                        console.log("Listening for answer...\n\n")
+
+                        const loginReplyResult = loginReply.getResult();
+
+                        console.log("Answer received...", loginReplyResult, '\n\n');
+
+                        if (loginReplyResult.ack && loginReplyResult.pincodeRequired) {
+                            throw new Error("This detector is locked and a pincode is required to open it\n\n");
+                        }
+                        console.log("resolving...", loginReplyResult, '\n\n');
+
+                        this.cassiaListener.close();
+
+                        return resolve(loginReplyResult);
+                    }
+                })
             })
-        })
+        } catch (err) {
+            console.log(err)
+        }
+
     }
 
 
@@ -120,8 +129,11 @@ export default class NextGenService {
             try {
 
                 console.log("Checking for Mac-address\n\n")
+
                 if (!macAddress) {
+
                     throw new Error("MacAddress is required\n\n");
+
                 }
 
                 console.log("Mac-address exists\n\n")
@@ -182,14 +194,15 @@ export default class NextGenService {
 
     }
 
-    async jumpToBoot(macAddress) {
+    async jumpToBoot(macAddress, isSensor = true) {
+
+        const data = isSensor ? '0101000800D9CB01' : '0101000800D9CB02';
+
         return new Promise(async (resolve, reject) => {
-            const result = await CassiaEndpoints.writeBleMessage(this.IP, macAddress, 19, "0101000800D9CB01", '?noresponse=1');
+            const result = await CassiaEndpoints.writeBleMessage(this.IP, macAddress, 19, data, '?noresponse=1');
             return resolve(result.status === 200);
         })
     }
-
-
 
 
 }

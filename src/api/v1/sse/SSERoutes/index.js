@@ -6,6 +6,7 @@ const sseRouter = new express.Router();
 
 
 sseRouter.get('/connection-status', connectionSSE)
+sseRouter.get('/upgrade-status', connectionSSE)
 
 
 export default sseRouter;

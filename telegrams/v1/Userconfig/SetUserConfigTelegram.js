@@ -20,6 +20,7 @@ class SetUserConfigTelegram {
     create() {
         return this.telegramHelper.createTelegramFromHexString(this)
     }
+
 }
 
 export default SetUserConfigTelegram;
