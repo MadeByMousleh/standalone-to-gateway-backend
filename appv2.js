@@ -6,7 +6,8 @@ import LoginRoutes from './src/api/v1/login/LoginRoutes/index.js';
 import ScanRoutes from './src/api/v1/scan/ScanRoutes/index.js';
 import UpgradeRoutes from './src/api/v1/upgrade/UpgradeRoutes/index.js';
 import sseRouter from './src/api/v1/sse/SSERoutes/index.js';
-
+import infoRouter from './src/api/v1/info/InfoRoutes/index.js';
+import ControlsRoutes from './src/api/v1/controls/ControlsRoutes.js'
 dotenv.config()
 
 
@@ -34,6 +35,9 @@ app.use('/api/v1/next-gen/scan',ScanRoutes)
 
 app.use('/api/v1/next-gen/sse',sseRouter);
 
+app.use('/api/v1/next-gen/info/mac',infoRouter);
+
+app.use('/api/v1/next-gen/controls/mac',ControlsRoutes);
 
 
 app.listen(8888, () => {

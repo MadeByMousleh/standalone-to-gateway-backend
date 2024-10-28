@@ -13,6 +13,7 @@ import { finished } from 'stream/promises';
 
 import { InfluxDB, Point } from '@influxdata/influxdb-client';
 import { error } from "console";
+import NextGenDevice from "../../../../../models/NextgenDevice/index.js";
 
 const token = 'vV_E03gDMHwmt1r4242KfR7Gc_oOjdCQKdtS65Q7G5Ysz9f6jz-2hd4ubuYufslPvoPYgouPuHudaOF9ledLwg=='
 const url = 'http://localhost:8086'
@@ -48,56 +49,74 @@ function logCurrentTime() {
     return `${hours}:${minutes}:${seconds}`;
 }
 
+const changeEndianness = (string) => {
+    const result = [];
+    let len = string.length - 2;
+    while (len >= 0) {
+      result.push(string.substr(len, 2));
+      len -= 2;
+    }
+    return result.join('');
+}
+
+
 
 function writePir(macAddress) {
 
     // console.log("Writing point", logCurrentTime());
-    try {
+    // try {
 
-        let point = new Point('Movement')
-            .tag("macAddress", macAddress)
-            .intField('isPirDetected', 1)
-        writeClient.writePoint(point)
-    } catch (err) {
-        console.log(err)
-    } finally {
-        writeClient.flush();
+    //     let point = new Point('Movement')
+    //         .tag("macAddress", macAddress)
+    //         .intField('isPirDetected', 1)
+    //     writeClient.writePoint(point)
 
-    }
+    //     writeClient.flush();
+
+    // } catch (err) {
+
+    //     console.log(err)
+    //     writeClient.flush();
+
+
+    // }
 }
 
 function writeLux(macAddress, lux) {
 
     // console.log("Writing Lux data", lux, logCurrentTime());
-    try {
+    // try {
 
-        let point = new Point('Lux')
-            .tag("macAddress", macAddress)
-            .intField('lux-level', lux)
-        writeClient.writePoint(point)
-    } catch (err) {
-        console.log(error)
-    } finally {
-        writeClient.flush();
+    //     let point = new Point('Lux')
+    //         .tag("macAddress", macAddress)
+    //         .intField('lux-level', lux)
+    //     writeClient.writePoint(point)
 
-    }
+    //     writeClient.flush();
+
+    // } catch (err) {
+    //     console.log(error)
+    //     writeClient.flush();
+
+    // }
 }
 
 function writeIsLightOn(macAddress) {
 
     // console.log("Writing is light on", logCurrentTime());
-    try {
-        let point = new Point('Light On')
-            .tag("macAddress", macAddress)
-            .intField('light-on', 1)
-        writeClient.writePoint(point)
-    } catch (err) {
-        console.log(error)
-    }
-    finally {
-        writeClient.flush();
+    // try {
+    //     let point = new Point('Light On')
+    //         .tag("macAddress", macAddress)
+    //         .intField('light-on', 1)
+    //     writeClient.writePoint(point)
+    //     writeClient.flush();
 
-    }
+    // } catch (err) {
+    //     console.log(error)
+    //     writeClient.flush();
+
+    // }
+
 }
 
 
@@ -420,6 +439,8 @@ class AdvertisementData {
 
     constructor(hexString, macAddress) {
 
+        console.log(hexString.length)
+
         if (hexString.length > 0) {
             // Flags
             this.flags = hexString.slice(0, 2);
@@ -444,6 +465,8 @@ class AdvertisementData {
             this.mailThree = hexString.slice(32, 38);
 
             this.mailFour = hexString.slice(38, 44);
+
+
 
             this.tw = hexString.slice(44, 46);
 
@@ -472,7 +495,7 @@ class AdvertisementData {
 
                     let luxLevel = Number("0x" + this.mailFour.slice(2, 6));
 
-                    console.log(luxLevel, 'LUX level')
+                    // console.log(luxLevel, 'LUX level')
 
                     if (luxLevel !== 1023) {
 
@@ -482,7 +505,7 @@ class AdvertisementData {
 
                     let isLightOn = Number(this.mailFour.slice(0, 2));
 
-                    console.log(isLightOn, 'Light is on')
+                    // console.log(isLightOn, 'Light is on')
 
                     if (isLightOn === 1) {
 
@@ -492,10 +515,6 @@ class AdvertisementData {
                 }
             }
 
-
-            // if (macAddress === '10:B9:F7:10:00:AF') {
-            //     console.log(hexString)
-            // }
 
 
             if (this.pirEvent === '08') {
@@ -545,6 +564,8 @@ class Device {
 
         this.advertisementData = advertisementData;
 
+        // console.log(this.advertisementData)
+
         // this.isConnected = commonBleData.eventType === 2;
 
     }
@@ -561,6 +582,31 @@ function extractLuxData(hexData) {
     return lux;
 }
 
+
+function updateDevices(device) {
+
+    const exists = devices[device.mac];
+
+
+    if (exists) {
+        if (device.lux === 0 && exists.lux !== 0) {
+            devices[device.mac] = { ...device, lux: exists.lux };
+        }
+        else {
+            devices[device.mac] = { ...device };
+        }
+    }
+    else {
+        devices[device.mac] = device;
+    }
+
+    // console.log(devices);
+    // console.log(Object.keys(devices).length)
+
+}
+
+
+
 function sendMobileScanData(event, response) {
 
     let data = JSON.parse(event.data)
@@ -571,17 +617,14 @@ function sendMobileScanData(event, response) {
 
     const adData = commonData.advertisementData && new AdvertisementData(commonData.advertisementData, commonData.bleAddress);
 
-    if (commonData.bleAddress === '10:B9:F7:0F:6C:B8' || commonData.bleAddress === '10:B9:F7:0F:6C:AC' || commonData.bleAddress === '10:B9:F7:66:66:66') {
+    const device = new Device(commonData, scanData, adData);
 
-        if (adData) {
+    if (adData) {
 
-            if (adData.source) {
+        const nextGenDevice = new NextGenDevice(device.commonBleData.bleAddress, adData);
 
-                console.log(adData.source, commonData.bleAddress);
-            }
-        }
+        updateDevices(nextGenDevice);
     }
-
 
     // 0201061BFFFE05CB1901000000000000000000000000080000000000000000
 
@@ -606,8 +649,6 @@ function sendMobileScanData(event, response) {
     //     macAddress: '10:B9:F7:0F:6C:AC'
     //   } 0201061BFFFE05CD1901000000000000000000000000080000000000000000
 
-
-    const device = new Device(commonData, scanData, adData);
 
     // if (commonData.bleAddress === '10:B9:F7:10:61:A5') {
 
@@ -646,3 +687,15 @@ export const ScanForBleDevices = (request, response, next) => {
 
 
 };
+
+
+export const getData = (request, response, next) => {
+
+    const { mac } = request.params;
+
+    console.log(devices[mac.toUpperCase()]);
+
+    let device = devices[mac.toUpperCase()];
+
+    response.status(200).send(JSON.stringify(device));
+}
