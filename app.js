@@ -189,8 +189,6 @@ class AdvertisementData {
     constructor(hexString, macAddress) {
 
         // console.log(macAddress)
-        if(macAddress === '10:B9:F7:0F:9B:87')
-        console.log(hexString.replace(/(.{2})/g, '$1-').slice(0, -1));
 
         if (hexString.length > 0) {
             // Flags
@@ -224,50 +222,50 @@ class AdvertisementData {
                 this.timeStamp = new Date().toLocaleDateString('en-US', options);
             }
         }
+
+
+
+        // console.log(header, 'header');
+        // console.log(payload, 'payload');
+
+        // [02-01-06-1B-FF-FE-05]-[A6-03-01-00]-[00-00-00-00-00-00-00-00-00]-[00-00-08-00-00-00]-[00-00-00-00-00]
+        // Header
+        // [02-01-06-1B-FF-FE-05]-
+        // 02 = Flags indicating BLE General Discoverable Mode
+        // 01 = Length of the Flags field
+        // 06 = Data Type indicating the Shortened Local Name
+        // 1BFFFE05 = Bluetooth MAC Address (Little Endian)
+
+        // [A6-03-01-00]
+        // A6 = Sequence number
+        // 03 = Source (network)
+        // 01 = Source Type (Sec/push-button/master)
+        // 00 = Wireless function
+
+        // [00-00-00-00-00-00-00-00-00]
+        // 00 = Mail
+        // 00 = Mail
+        // 00 = Mail
+        // 00 = Mail
+        // 00 = Mail
+        // 00 = Mail
+        // 00 = Mail
+        // 00 = Mail
+        // 00 = TW
+
+        // [00-00-08-00-00-00]
+        // 00 = Push button event
+        // 00 = Push button number
+        // 00 = Pir event
+        // 00 = BLE button mac (Last three as the others are known)
+
+        // [00-00-00-00-00]
+        // 00 = Padding
+        // 00 = Padding
+        // 00 = Padding
+        // 00 = Padding
+        // 00 = Padding
     }
-
-
-    // console.log(header, 'header');
-    // console.log(payload, 'payload');
-
-    // [02-01-06-1B-FF-FE-05]-[A6-03-01-00]-[00-00-00-00-00-00-00-00-00]-[00-00-08-00-00-00]-[00-00-00-00-00]
-    // Header
-    // [02-01-06-1B-FF-FE-05]-
-    // 02 = Flags indicating BLE General Discoverable Mode
-    // 01 = Length of the Flags field
-    // 06 = Data Type indicating the Shortened Local Name
-    // 1BFFFE05 = Bluetooth MAC Address (Little Endian)
-
-    // [A6-03-01-00]
-    // A6 = Sequence number
-    // 03 = Source (network)
-    // 01 = Source Type (Sec/push-button/master)
-    // 00 = Wireless function
-
-    // [00-00-00-00-00-00-00-00-00]
-    // 00 = Mail
-    // 00 = Mail
-    // 00 = Mail
-    // 00 = Mail
-    // 00 = Mail
-    // 00 = Mail
-    // 00 = Mail
-    // 00 = Mail
-    // 00 = TW
-
-    // [00-00-08-00-00-00]
-    // 00 = Push button event
-    // 00 = Push button number
-    // 00 = Pir event
-    // 00 = BLE button mac (Last three as the others are known)
-
-    // [00-00-00-00-00]
-    // 00 = Padding
-    // 00 = Padding
-    // 00 = Padding
-    // 00 = Padding
-    // 00 = Padding
-}
 
 
 
@@ -1505,7 +1503,7 @@ app.post("/connect-mobile", async (req, res, next) => {
                             unsubscribe("replyLogin", (e) => console.log(e));
 
                             return res.send({ status: 200, ack: true, value: mac });
-                            
+
                         }
                     }
                 });

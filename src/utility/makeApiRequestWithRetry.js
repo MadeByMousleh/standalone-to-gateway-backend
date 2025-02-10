@@ -3,6 +3,7 @@ import axios from 'axios';
 // Function to make API request with retry
 const makeApiRequestWithRetry = async function makeApiRequestWithRetry(url, config, maxRetries = 3) {
     let retries = 0;
+    console.log(url);
 
     while (retries < maxRetries) {
 

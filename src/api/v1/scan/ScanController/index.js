@@ -154,7 +154,6 @@ async function appendData(filePath, data) {
     const writeStream = createWriteStream(filePath, { flags: 'a' });
     writeStream.write(data);
     await finished(writeStream);
-    console.log("Data appended");
 }
 
 async function writeData(filePath, data) {
@@ -439,7 +438,6 @@ class AdvertisementData {
 
     constructor(hexString, macAddress) {
 
-        console.log(hexString.length)
 
         if (hexString.length > 0) {
             // Flags
@@ -481,6 +479,7 @@ class AdvertisementData {
 
             // [00-00-00-00-00]
             this.padding = hexString.slice(58, 68);
+
             this.macAddress = macAddress;
             this.advertisementTimeStamp = new Date().getTime();
 
@@ -525,7 +524,6 @@ class AdvertisementData {
     }
 
 }
-
 
 class BLECommonData {
 
@@ -611,8 +609,11 @@ function sendMobileScanData(event, response) {
 
     let data = JSON.parse(event.data)
 
+    console.log(data)
+
     const commonData = new BLECommonData(data.bdaddrs[0].bdaddr, data.bdaddrs[0].bdaddrType, data.evtType, data.rssi, data.chipId, data.name, data?.scanData, data?.adData);
 
+    
     const scanData = commonData.scanData && new ScanData(commonData.scanData);
 
     const adData = commonData.advertisementData && new AdvertisementData(commonData.advertisementData, commonData.bleAddress);
@@ -626,36 +627,14 @@ function sendMobileScanData(event, response) {
         updateDevices(nextGenDevice);
     }
 
-    // 0201061BFFFE05CB1901000000000000000000000000080000000000000000
+    if(scanData)
+    {
+        const nextGenDevice = new NextGenDevice(device.commonBleData.bleAddress, scanData);
 
-    // AdvertisementData {
-    //     flags: '02',
-    //     header: '01061BFFFE',
-    //     sequenceNumber: 5,
-    //     source: 203,
-    //     sourceType: 25,
-    //     wirelessFunction: 1,
-    //     mailOne: '000000',
-    //     mailTwo: '000000',
-    //     mailThree: '000000',
-    //     mailFour: '000000',
-    //     tw: '08',
-    //     pushButtonEvent: '00',
-    //     pushButtonNumber: '00',
-    //     pirEvent: '00',
-    //     bleButtonMac: '000000',
-    //     padding: '0000',
-    //     advertisementTimeStamp: 1724231075160,
-    //     macAddress: '10:B9:F7:0F:6C:AC'
-    //   } 0201061BFFFE05CD1901000000000000000000000000080000000000000000
+        updateDevices(nextGenDevice);
 
 
-    // if (commonData.bleAddress === '10:B9:F7:10:61:A5') {
-
-    //     console.log(device.advertisementData)
-    // }
-
-
+    }
 
     response.write(`data: ${JSON.stringify(device)}\n\n`);
 
@@ -689,13 +668,11 @@ export const ScanForBleDevices = (request, response, next) => {
 };
 
 
-export const getData = (request, response, next) => {
+// export const getData = (request, response, next) => {
 
-    const { mac } = request.params;
+//     const { mac } = request.params;
 
-    console.log(devices[mac.toUpperCase()]);
+//     let device = devices[mac.toUpperCase()];
 
-    let device = devices[mac.toUpperCase()];
-
-    response.status(200).send(JSON.stringify(device));
-}
+//     response.status(200).send(JSON.stringify(device));
+// }

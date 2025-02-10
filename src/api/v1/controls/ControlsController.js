@@ -10,13 +10,11 @@ export const TurnLightOnOrOff = (request, response, next) => {
 
     const { mac } = request.params;
 
-    console.log(mac, '**********');
 
     const turnLightsOnOrOff = new TurnLightOnOrOffTelegram("000000010201000000").create();
 
     CassiaEndpoints.connectToBleDevice(IP, mac)
         .then(res => {
-            console.log(res.status)
             if (res.status === 200) {
 
                 CassiaEndpoints.writeBleMessage(IP, mac, 19, turnLightsOnOrOff, '?noresponse=1')
@@ -36,13 +34,10 @@ export const multipleTurnOnOff = (request, response, next) => {
 
     const { macs } = request.body;
 
-    console.log(macs, '**********');
-
     const turnLightsOnOrOff = new TurnLightOnOrOffTelegram("000000010202000000").create();
 
     CassiaEndpoints.connectToBleDevice(IP, mac)
         .then(res => {
-            console.log(res.status)
             if (res.status === 200) {
 
                 CassiaEndpoints.writeBleMessage(IP, mac, 19, turnLightsOnOrOff, '?noresponse=1')

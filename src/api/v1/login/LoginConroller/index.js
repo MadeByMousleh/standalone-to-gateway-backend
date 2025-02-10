@@ -217,7 +217,6 @@ export const disconnectMultiple = async (request, response, next) => {
 export async function getConnectionList(request, response, next) {
    
     const result = await CassiaEndpoints.getConnectionList(IP);
-    console.log(result);
     return response.send(result);
 }
 

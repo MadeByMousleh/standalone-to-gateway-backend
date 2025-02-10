@@ -146,6 +146,7 @@ export class NextGenDevice {
 
             try {
                 const { data } = await CassiaEndpoints.checkForCharacteristic(this.gatewayIp, this.mac);
+                
                 const isInBootMode = !!data.find(characterstic => characterstic.handle === 14 && characterstic.uuid === '00060001-f8ce-11e4-abf4-0002a5d5c51b');
 
                 if (isInBootMode) return resolve("BOOT");
@@ -231,8 +232,7 @@ export class NextGenDevice {
 
             this.upgradeProcessor.startUpgrade();
         }
-
-
+        
     }
 
     async upgradeSensor(sensorFirmware) {

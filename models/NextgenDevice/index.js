@@ -12,7 +12,7 @@ class NextGenDevice {
     }
 
     if (adData.mailFour !== "000000" && adData.mailFour) {
-      console.log(adData.mailFour)
+      // console.log(adData.mailFour)
       this.lux = Number("0x" + adData.mailFour.slice(2, 6));
 
 

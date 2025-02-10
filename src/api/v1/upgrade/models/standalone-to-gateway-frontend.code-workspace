@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "../../../../../../standalone-to-gateway-frontend"
+		},
+		{
+			"path": "../../../../.."
+		}
+	],
+	"settings": {
+		"prisma-smart-formatter.typescript.defaultFormatter": "vscode.typescript-language-features"
+	}
+}

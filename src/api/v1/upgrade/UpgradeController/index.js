@@ -56,11 +56,6 @@ evReply.onmessage = (msg) => {
 }
 
 
-const startUpgrade = (device) => {
-    queueEmitter.emit('device-added', device);
-}
-
-
 export function upgradeSensor(req, res, next) {
 
     try {
@@ -72,6 +67,7 @@ export function upgradeSensor(req, res, next) {
             const nextGenDevice = new NextGenDevice(IP, d.data.macAddress, null, "", d.data.isBoot, d.firmware);
 
             queue.push(nextGenDevice);
+
             processQueue();
 
         })

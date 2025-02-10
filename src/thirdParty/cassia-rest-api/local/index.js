@@ -54,7 +54,7 @@ const CassiaEndpoints = {
     // SSE
 
     scanForBleDevices: (gatewayIp, request, response, onData, active = 1) => {
-        return listenForSSE(`http://${gatewayIp}/gap/nodes?event=1&filter_mac=10:B9:F7*&active=${active}&report_interval=1000&timestamp=1`, request, response, onData);
+        return listenForSSE(`http://${gatewayIp}/gap/nodes?event=1&filter_mac=10:B9:F7*&timestamp=1&active=1`, request, response, onData);
     },
 
     listenForConnections: async (gatewayIp, request, response, onData) => {
