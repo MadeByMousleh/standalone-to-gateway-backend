@@ -1,10 +1,19 @@
 import express from 'express';
-// import { getData } from '../../scan/ScanController/index.js';
+import { daliCommission, get102PowerOnEndpoint, getAmountOf102Devices, getLuminariesInfo } from './LuminaryInfo/LuminaryInfoController.js';
 
-const infoRouter = express.Router();
-
-
-infoRouter.get('/:mac', () => {})
+const router = express.Router();
 
 
-export default infoRouter;
+router.post('/:mac/luminaries/commission', daliCommission)
+
+router.get('/:mac/luminaries/count', getAmountOf102Devices)
+
+router.get('/:mac/luminaries/info', getLuminariesInfo)
+
+router.get('/:mac/luminary/powerOn/:shortAddress', get102PowerOnEndpoint)
+
+
+
+export default router;
+
+

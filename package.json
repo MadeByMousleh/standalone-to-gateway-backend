@@ -7,7 +7,8 @@
   "module": "es6",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "nodemon appv2.js"
+    "start": "nodemon appv2.js",
+    "debug": "nodemon --inspect appv2.js"
   },
   "keywords": [],
   "author": "",

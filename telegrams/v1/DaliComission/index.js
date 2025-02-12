@@ -1,19 +1,21 @@
 import TelegramHelper from '../TelegramHelper.js'
 
-class DaliGet102DeviceCount {
+class DaliCommission {
 
     protocolVersion;
     telegramType;
     totalLength;
     telegramHelper = new TelegramHelper();
     payload;
+    searchType;
 
-    constructor() {
+    constructor(searchType) {
         this.telegramHelper = new TelegramHelper();
         this.protocolVersion = this.telegramHelper.createProtocolVersion(0x01);
-        this.telegramType = this.telegramHelper.createTelegramType(0x040F);
-        this.totalLength = this.telegramHelper.createTotalLength(0x0007);
-        this.payload = [];
+        this.telegramType = this.telegramHelper.createTelegramType(0x0400);
+        this.totalLength = this.telegramHelper.createTotalLength(0x0008);
+        this.searchType = searchType;
+        this.payload = [this.searchType];
     }
 
     create() {
@@ -21,5 +23,5 @@ class DaliGet102DeviceCount {
     }
 }
 
-export default DaliGet102DeviceCount;
+export default DaliCommission;
 

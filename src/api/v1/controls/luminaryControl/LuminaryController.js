@@ -18,6 +18,7 @@ export const turnLightOff = (request, response) => {
 
   CassiaEndpoints.writeBleMessage(IP, mac, 19, telegram, '?noresponse=1')
     .then((writeResponse) => {
+      
       if (writeResponse.status === 200) {
         response.send('OK');
       }

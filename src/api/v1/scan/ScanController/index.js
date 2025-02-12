@@ -609,8 +609,6 @@ function sendMobileScanData(event, response) {
 
     let data = JSON.parse(event.data)
 
-    console.log(data)
-
     const commonData = new BLECommonData(data.bdaddrs[0].bdaddr, data.bdaddrs[0].bdaddrType, data.evtType, data.rssi, data.chipId, data.name, data?.scanData, data?.adData);
 
     
