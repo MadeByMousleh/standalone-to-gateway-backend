@@ -7,6 +7,8 @@ import DaliGet102DeviceCount from "../../../../../../telegrams/v1/DaliGet102Devi
 import DaliGet102DeviceCountReply from "../../../../../../telegrams/v1/DaliGet102DeviceCount/reply.js";
 import DaliGetDevicesCommonParam from "../../../../../../telegrams/v1/DaliGetDeviceCommonParam/index.js";
 import DaliDeviceCommonParamReply from "../../../../../../telegrams/v1/DaliGetDeviceCommonParam/reply.js";
+import DaliGetDeviceDataGroup from "../../../../../../telegrams/v1/DaliGetDeviceDataGroup/index.js";
+import DaliGetDataGroupReply from "../../../../../../telegrams/v1/DaliGetDeviceDataGroup/reply.js";
 import DaliGetDeviceDataType from "../../../../../../telegrams/v1/DaliGetDeviceDataType/index.js";
 import DaliDeviceDataTypeReply from "../../../../../../telegrams/v1/DaliGetDeviceDataType/reply.js";
 import DaliQueryControlGear from "../../../../../../telegrams/v1/DaliQueryControlGear/index.js";
@@ -138,7 +140,7 @@ const getLuminaryCommonParameters = async (macAddress) => {
                 // Remove listener after receiving data
                 cassiaListener.eventEmitter.removeListener(macAddress, handler);
 
-                resolve(createResponseWithMessage(macAddress, result, reply.toJSON(), {commonParams: reply.paramsToJson() }));
+                resolve(createResponseWithMessage(macAddress, result, reply.toJSON(), { commonParams: reply.paramsToJson() }));
 
             };
 
@@ -154,7 +156,7 @@ const getDeviceTypeData = async (macAddress, shortAddress) => {
 
     return new Promise(async (resolve, reject) => {
 
-        try {  
+        try {
             const telegram = new DaliGetDeviceDataType(shortAddress);
 
             const hexCommand = telegram.create();
@@ -164,7 +166,7 @@ const getDeviceTypeData = async (macAddress, shortAddress) => {
 
             // Handler for incoming data
             const handler = (data) => {
-                
+
                 console.log(`Received data for ${macAddress}:`, data, 'DALI GET DEVICE DATA TYPE');
 
                 const reply = new DaliDeviceDataTypeReply(data)
@@ -172,7 +174,7 @@ const getDeviceTypeData = async (macAddress, shortAddress) => {
                 // Remove listener after receiving data
                 cassiaListener.eventEmitter.removeListener(macAddress, handler);
 
-                resolve(createResponseWithMessage(macAddress, result, reply.toJSON(), {params: reply.paramsToJson() }));
+                resolve(createResponseWithMessage(macAddress, result, reply.toJSON(), { params: reply.paramsToJson() }));
 
             };
 
@@ -184,8 +186,42 @@ const getDeviceTypeData = async (macAddress, shortAddress) => {
     });
 }
 
+const getZoneForLuminary = async (macAddress, shortAddress) => {
 
+    return new Promise(async (resolve, reject) => {
 
+        try {
+            const telegram = new DaliGetDeviceDataGroup(shortAddress);
+
+            const hexCommand = telegram.create();
+
+            // Send BLE message
+            const result = await CassiaEndpoints.writeBleMessage(IP, macAddress, 19, hexCommand, "?noresponse=1");
+
+            // Handler for incoming data
+            const handler = (data) => {
+
+                console.log(`Received data for ${macAddress}:`, data, 'DALI GET ZONE FOR LUMINARY');
+
+                const reply = new DaliGetDataGroupReply(data)
+
+                console.log(reply, 'yoyoyoyoo', reply.toJSON())
+
+                // Remove listener after receiving data
+                cassiaListener.eventEmitter.removeListener(macAddress, handler);
+
+                resolve(createResponseWithMessage(macAddress, result, reply.toJSON(), { zone: reply.toJSON().zone }));
+
+            };
+
+            // Add a one-time listener for this specific MAC address
+            cassiaListener.eventEmitter.addListener(macAddress, handler);
+        } catch (error) {
+            reject(error);
+        }
+    });
+
+}
 
 
 const commissionDevices = async (macAddress, searchType = DALI_COMMISSION_SEARCH_TYPE.TOTAL_NEW_SEARCH_102_AND_MANUAL_ASSIGN) => {
@@ -225,14 +261,14 @@ const commissionDevices = async (macAddress, searchType = DALI_COMMISSION_SEARCH
                     const reply = new DaliCommissionStatusResultReply(data);
 
                     const commonParams = await getLuminaryCommonParameters(macAddress);
-                    
-                
+
+
                     let luminaries = {
                         devicesFound: +reply.devicesFoundCount,
-                        devices: Array.from({ length:  +reply.devicesFoundCount}, (_, i) => ({
+                        devices: Array.from({ length: +reply.devicesFoundCount }, (_, i) => ({
                             shortAddress: i.toString().padStart(2, "0"),
                             powerOn: true,
-                            powerConsumption: 0, 
+                            powerConsumption: 0,
                             ...commonParams.commonParams,
                         }))
                     }
@@ -243,20 +279,25 @@ const commissionDevices = async (macAddress, searchType = DALI_COMMISSION_SEARCH
 
                         const luminary = copy[index];
 
-                        const {params} = await getDeviceTypeData(macAddress, luminary.shortAddress);
-
+                        const { params } = await getDeviceTypeData(macAddress, luminary.shortAddress);
                         copy[index].deviceType = params;
+                    }
 
-                    
-                        
+
+                    for (let index = 0; index < copy.length; index++) {
+
+                        const luminary = copy[index];
+
+                        const { zone } = await getZoneForLuminary(macAddress, luminary.shortAddress);
+                        copy[index].zone = zone;
                     }
 
                     luminaries.devices = [...copy];
-                   
 
-                    
+
+
                     cassiaListener.eventEmitter.removeListener(macAddress, handler);
-                    resolve(createResponseWithMessage(macAddress, result, reply.commissioningResults[reply.status], {luminaries}));
+                    resolve(createResponseWithMessage(macAddress, result, reply.commissioningResults[reply.status], { luminaries }));
                     console.log(luminaries)
                 }
 
