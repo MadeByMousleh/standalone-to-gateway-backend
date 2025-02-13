@@ -16,8 +16,11 @@ class CassiaNotificationService {
 
         this.eventSource.onmessage = (msg) => {
             const { id, value } = JSON.parse(msg.data);
-            console.log(id, value)
+            const telegramType = value.slice(2, 6);
+
             this.eventEmitter.emit(id, value);
+            this.eventEmitter.emit(`${id}-${telegramType}`, value);
+
         };
 
         // Handle process exit to clean up resources

@@ -1,19 +1,15 @@
 class DaliGetDataGroupReply {
 
+    static replyTelegram = "1D04";
 
-    constructor(value) {
 
-   
-        console.log(value)
-        
+    constructor(value) {        
         this.protocolVersion = value.slice(0, 2);
         this.telegramType = value.slice(2, 6);
         this.totalLength = value.slice(6, 10);
         this.crc16 = value.slice(10, 14);
         this.status = value.slice(14, 16);
         this.groups = value.slice(16,20);
-
-
     }
 
     static statusCodes = Object.freeze({

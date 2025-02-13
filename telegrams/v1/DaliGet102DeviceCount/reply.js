@@ -11,7 +11,7 @@ class DaliGet102DeviceCountReply {
     totalLength
     crc16
     status
-    replyTelegram = "0417";
+    static replyTelegram = "1F04";
 
     constructor(value) {
 

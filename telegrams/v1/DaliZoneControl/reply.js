@@ -1,19 +1,15 @@
-class DaliDeviceDataTypeReply {
+class DaliZoneControlReply {
 
-    static replyTelegram = "1C04";
+    static replyTelegram = "2804";
     
     constructor(value) {
-        if (typeof value !== "string" || value.length < 20) {
-            throw new Error("Invalid input data. Expected a hex string of at least 20 characters.");
-        }
+      
 
         this.protocolVersion = value.slice(0, 2);
         this.telegramType = value.slice(2, 6);
         this.totalLength = value.slice(6, 10);
         this.crc16 = value.slice(10, 14);
         this.status = value.slice(14, 16);
-        this.deviceType0 = value.slice(16, 18);
-        this.deviceType1 = value.slice(18, 20);
     }
 
     static statusCodes = Object.freeze({
@@ -23,7 +19,7 @@ class DaliDeviceDataTypeReply {
     });
 
     getStatusMessage() {
-        return DaliDeviceDataTypeReply.statusCodes[this.status] || { message: "Unknown status", ack: false };
+        return DaliZoneControlReply.statusCodes[this.status] || { message: "Unknown status", ack: false };
     }
 
     toJSON() {
@@ -37,17 +33,9 @@ class DaliDeviceDataTypeReply {
                 message: this.getStatusMessage().message,
                 ack: this.getStatusMessage().ack
             },
-            deviceType0: this.deviceType0,
-            deviceType1: this.deviceType1
-        };
-    }
 
-    paramsToJson() {
-        return {
-            deviceType0: this.deviceType0,
-            deviceType1: this.deviceType1
         };
     }
 }
 
-export default DaliDeviceDataTypeReply;
+export default DaliZoneControlReply;

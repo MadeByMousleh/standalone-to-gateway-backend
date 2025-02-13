@@ -1,4 +1,7 @@
 class DaliDeviceCommonParamReply {
+
+    static replyTelegram = "2004";
+    
     constructor(value) {
         if (typeof value !== "string" || value.length < 30) {
             throw new Error("Invalid input data. Expected a hex string of at least 30 characters.");

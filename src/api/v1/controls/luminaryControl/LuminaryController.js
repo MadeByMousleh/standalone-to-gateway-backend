@@ -22,7 +22,7 @@ export const turnLightOff = (request, response) => {
     .then((writeResponse) => {
 
       if (writeResponse.status === 200) {
-        response.send('OK');
+        response.send({ message: 'Light turned off successfully', status: 'success', shortAddress });
       }
     });
 };
