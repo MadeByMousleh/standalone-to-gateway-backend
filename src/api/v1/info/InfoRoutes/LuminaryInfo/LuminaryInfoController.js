@@ -14,6 +14,7 @@ import DaliDeviceDataTypeReply from "../../../../../../telegrams/v1/DaliGetDevic
 import DaliQueryControlGear from "../../../../../../telegrams/v1/DaliQueryControlGear/index.js";
 import { QueryCommands } from "../../../../../../telegrams/v1/DaliQueryControlGear/QueryCommands.js";
 import DaliQueryControlGearReply from "../../../../../../telegrams/v1/DaliQueryControlGear/reply.js";
+import GetUserConfigTelegram from "../../../../../../telegrams/v1/Userconfig/GetUserConfigTelegram.js";
 import CassiaNotificationService from "../../../../../services/CassiaNotificationService.js";
 import CassiaEndpoints from "../../../../../thirdParty/cassia-rest-api/local/index.js";
 
@@ -53,6 +54,7 @@ async function getDali102DatabaseCount(macAddress) {
         } catch (error) {
             reject(error);
         }
+
     });
 }
 
@@ -68,35 +70,74 @@ export const getAmountOf102Devices = async (req, res, next) => {
 
 const getLuminaryPowerOn = async (macAddress, shortAddress) => {
 
+    const getUserConfigTelegram = new GetUserConfigTelegram().create();
+
     return new Promise(async (resolve, reject) => {
-        try {
-            const telegram = new DaliQueryControlGear(shortAddress, QueryCommands.QUERY_LAMP_POWER_ON);
-            const hexCommand = telegram.create();
+        await (macAddress)
+        let attempts = 0;
+        const maxAttempts = 10;
+        const delay = 2000; // 1 second delay between attempts
 
-            // Send BLE message
-            const result = await CassiaEndpoints.writeBleMessage(IP, macAddress, 19, hexCommand, "?noresponse=1");
+        const emitter = 0;
 
-            // Handler for incoming data
-            const handler = (data) => {
+        const attemptQuery = async () => {
+            try {
+                if (attempts === 0) {
+                    const result = await CassiaEndpoints.writeBleMessage(IP, macAddress, 19, getUserConfigTelegram, "?noresponse=1");
 
-                console.log(`Received data for ${macAddress}:`, data, 'POWER ON COMMAND');
+                } else {
+                    const telegram = new DaliQueryControlGear(shortAddress, QueryCommands.QUERY_LAMP_POWER_ON);
+                    const hexCommand = telegram.create();
 
-                const reply = new DaliQueryControlGearReply(data)
+                    const result = await CassiaEndpoints.writeBleMessage(IP, macAddress, 19, hexCommand, "?noresponse=1");
+                }
 
-                // Remove listener after receiving data
-                cassiaListener.eventEmitter.removeListener(telegram.telegramType, handler);
+                // Send BLE message
 
-                resolve(createResponseWithMessage(macAddress, result, ""));
+                // Handler for incoming data
+                const handler = (data) => {
+                    console.log(data);
 
-            };
+                    if (attempts !== 0) {
 
-            // Add a one-time listener for this specific MAC address
-            cassiaListener.eventEmitter.once(telegram.telegramType, handler);
-        } catch (error) {
-            reject(error);
-        }
+                        console.log(`Received data for ${macAddress}:`, data, 'POWER ON COMMAND');
+
+                        const reply = new DaliQueryControlGearReply(data);
+
+                        // Remove listener after receiving data
+                        cassiaListener.eventEmitter.removeListener(macAddress, handler);
+
+                        resolve(createResponseWithMessage(macAddress, result, ""));
+
+                    }
+                };
+
+                if (attempts === 0) {
+
+                    // Add a one-time listener for this specific MAC address
+                    cassiaListener.eventEmitter.addListener(macAddress, handler);
+                }
+
+                // Retry if no response after a timeout
+                setTimeout(() => {
+                    if (attempts < maxAttempts) {
+                        attempts++;
+                        console.log(`Retrying (${attempts}/${maxAttempts}) for ${macAddress}...`);
+                        attemptQuery();
+                    } else {
+                        reject(new Error(`Failed to get response after ${maxAttempts} attempts for ${macAddress}`));
+                    }
+                }, delay);
+            } catch (error) {
+                reject(error);
+            }
+
+        };
+
+        attemptQuery();
     });
-}
+};
+
 
 export const get102PowerOnEndpoint = async (req, res) => {
 
@@ -210,7 +251,7 @@ const getZoneForLuminary = async (macAddress, shortAddress) => {
                 // Remove listener after receiving data
                 cassiaListener.eventEmitter.removeListener(macAddress, handler);
 
-                resolve(createResponseWithMessage(macAddress, result, reply.toJSON(), { zone: reply.toJSON().zone }));
+                resolve(createResponseWithMessage(macAddress, result, reply.toJSON()));
 
             };
 
@@ -313,7 +354,55 @@ const commissionDevices = async (macAddress, searchType = DALI_COMMISSION_SEARCH
 
 const gatherLuminariesInformation = async (macAddress) => {
 
-    console.log("YOYOY")
+
+    let amountOf102Devices = await getDali102DatabaseCount(macAddress);
+
+    const commonParams = await getLuminaryCommonParameters(macAddress);
+    const params = {
+        maxLevel: commonParams.data.maxLevel,
+        minLevel: commonParams.data.minLevel,
+        powerOnLevel: commonParams.data.powerOnLevel,
+        sysFailLevel: commonParams.data.sysFailLevel,
+        fadeTime: commonParams.data.fadeTime,
+        fadeRate: commonParams.data.fadeRate,
+        extendedFadeTime: commonParams.data.extendedFadeTime,
+    }
+
+
+    amountOf102Devices = parseInt(amountOf102Devices.data, 16);
+
+
+    const luminaries = [];
+
+    for (let index = 0; index < amountOf102Devices; index++) {
+
+        const shortAddress = index;
+        const zoneRequest = await getZoneForLuminary(macAddress, shortAddress);
+        const deviceTypes = await getDeviceTypeData(macAddress, shortAddress);
+        const types = {
+            deviceTypesZero: deviceTypes.data.deviceType0,
+            deviceTypesOne: deviceTypes.data.deviceType1
+
+        }
+        const luminary = {
+            shortAddress,
+            zone: zoneRequest.data.zone,
+            commonParams: params,
+            powerConsumption: 0,
+            deviceType: types,
+            powerOn: await getLuminaryPowerOn(macAddress, shortAddress),
+        }
+
+        luminaries.push(luminary)
+
+    }
+
+    console.log(luminaries);
+    return luminaries;
+}
+
+const getLuminaryInfo = async (macAddress) => {
+
 
     let amountOf102Devices = await getDali102DatabaseCount(macAddress);
 
@@ -342,8 +431,6 @@ const gatherLuminariesInformation = async (macAddress) => {
 
     return luminaries;
 }
-
-
 
 
 

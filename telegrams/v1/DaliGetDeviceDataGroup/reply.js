@@ -30,33 +30,19 @@ class DaliGetDataGroupReply {
      mapHexToGroups(hexStr) {
         // Convert hex string to a 16-bit binary string
         let binaryStr = parseInt(hexStr, 16).toString(2).padStart(16, '0');
-
-        console.log(binaryStr);
     
-        // Group mapping based on the image
-        const groupMap = {
-            0: 1,
-            1: 2,
-            2: 3,
-            3: 4,
-            4: 5,
-            5: 6,
-            6: 7,
-            7: 8,
-            8: 9
-            // Bits 9-15 are not used
+        const predefinedMappings = {
+            "0001000100000000": "Zone 1",
+            "0000000100000001": "Zone 1 & Multizone",
+            "0010001000000000": "Zone 2",
+            "0000001000000001": "Zone 2 & Multizone",
+            "0100010000000000": "Zone 3",
+            "0000010000000001": "Zone 3 & Multizone",
+            "1000100000000000": "Zone 4",
+            "0000100000000001": "Zone 4 & Multizone"
         };
     
-        let activeGroups = [];
-    
-        // Check which bits are set
-        for (let i = 0; i <= 8; i++) {
-            if (binaryStr[15 - i] === '1') { // Reverse index as MSB is at left
-                activeGroups.push(groupMap[i]);
-            }
-        }
-    
-        return activeGroups.length > 0 ? activeGroups : 0xFF;
+        return predefinedMappings[binaryStr] || "Unknown zone/group";
     }
 
     toJSON() {

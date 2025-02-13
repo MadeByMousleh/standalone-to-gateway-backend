@@ -17,9 +17,9 @@ class DaliQueryControlGear {
         this.protocolVersion = this.telegramHelper.createProtocolVersion(0x01);
         this.telegramType = this.telegramHelper.createTelegramType(0x0409);
         this.totalLength = this.telegramHelper.createTotalLength(0x0009);
-        this.shortAddress = this.toHex(shortAddress);
-        this.query = this.toHex(query);
-        this.payload = [this.query, this.shortAddress];
+        this.shortAddress = shortAddress;
+        this.query = query;
+        this.payload = [this.query, parseInt(shortAddress,16)];
     }
 
      toHex(value) {
