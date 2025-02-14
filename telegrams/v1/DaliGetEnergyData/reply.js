@@ -32,10 +32,10 @@ static replyTelegram = "1606";
             0x06: { factor: 1e6, unit: "MWh" }  // +6
         };
         
-        const scaleData = scaleMapping[scaleFactor] || { factor: 1, unit: "Unknown" };
+        const scaleData = scaleMapping[scaleFactor] || { factor: 1, unit: "N/A" };
         
         return {
-            activeEnergy: activeEnergy * scaleData.factor,
+            activeEnergy: (activeEnergy * scaleData.factor) === 281474976710655 ? 0: (activeEnergy * scaleData.factor),
             SIUnit: scaleData.unit, 
             scaleFactor: this.scalingFactor,
             rawActiveEnergy: this.activeEnergy
@@ -73,8 +73,10 @@ static replyTelegram = "1606";
     parseOperatingTimeToText(bytes) {
         const totalSeconds = parseInt(bytes, 16);
         const hours = Math.floor(totalSeconds / 3600);
+        if(hours === 1193046 ) {return "N/A"}
         const minutes = Math.floor((totalSeconds % 3600) / 60);
         const seconds = totalSeconds % 60;
+
 
         return `${hours} Hours ${minutes.toString().padStart(2, '0')} minutes`;
     }

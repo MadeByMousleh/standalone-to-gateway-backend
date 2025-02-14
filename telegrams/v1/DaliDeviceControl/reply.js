@@ -1,17 +1,9 @@
-const Result = {
-    0: { bleSpecMsg: 'ACK', msg: 'Command succeeded', ack: true},
-    1: { bleSpecMsg: 'NACK_RANGE_CHECK', msg: 'This address does not exist', ack: false },
-    3: { bleSpecMsg: 'COMMISSIONING_RUNNING', msg: 'Command failed as commissioning is running', ack: false}
-}
-
 class DaliDeviceControlReply {
-    protocolVersion
-    telegramType
-    totalLength
-    crc16
-    status
 
+    static replyTelegram = "2704";
+    
     constructor(value) {
+
         this.protocolVersion = value.slice(0, 2);
         this.telegramType = value.slice(2, 6);
         this.totalLength = value.slice(6, 10);
@@ -19,31 +11,29 @@ class DaliDeviceControlReply {
         this.status = value.slice(14, 16);
     }
 
-    swapBytes(bytes) {
-        return [bytes >> 8, bytes & 0xff];
+    static statusCodes = Object.freeze({
+        "00": { message: "ACK - validated OK", ack: true },
+        "01": { message: "NACK_RANGE_CHECK - parameter has invalid range", ack: false },
+        "03": { message: "NACK_COMMISSIONING_RUNNING - Commissioning running", ack: false }
+    });
+
+    getStatusMessage() {
+        return DaliDeviceControlReply.statusCodes[this.status] || { message: "Unknown status", ack: false };
     }
 
-    getProtocolVersion() {
-        return this.protocolVersion;
+    toJSON() {
+        return {
+            protocolVersion: this.protocolVersion,
+            telegramType: this.telegramType,
+            totalLength: this.totalLength,
+            crc16: this.crc16,
+            status: {
+                code: this.status,
+                message: this.getStatusMessage().message,
+                ack: this.getStatusMessage().ack
+            },
+        };
     }
-
-    getTelegramType() {
-        return this.swapBytes(this.telegramType);
-    }
-
-    getTotalLength() {
-        return this.swapBytes(this.totalLength);
-    }
-
-    getCrc16() {
-        return this.swapBytes(this.crc16);
-    }
-
-    getResult() {
-
-        return LoginResult[+this.loginResult]
-    }
-
 }
 
 export default DaliDeviceControlReply;

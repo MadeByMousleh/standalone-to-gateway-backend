@@ -1,6 +1,8 @@
 import DaliAssignDeviceToZone from '../../../../../telegrams/v1/DaliAssignDeviceToZone/index.js';
 import DaliAssignDeviceToZoneReply from '../../../../../telegrams/v1/DaliAssignDeviceToZone/reply.js';
 import DaliDeviceControl from '../../../../../telegrams/v1/DaliDeviceControl/index.js';
+import DaliDeviceControlReply from '../../../../../telegrams/v1/DaliDeviceControl/reply.js';
+import DaliGet102DeviceCount from '../../../../../telegrams/v1/DaliGet102DeviceCount/index.js';
 import CassiaNotificationService from '../../../../services/CassiaNotificationService.js';
 import CassiaEndpoints from '../../../../thirdParty/cassia-rest-api/local/index.js';
 
@@ -8,24 +10,77 @@ const IP = '192.168.40.1';
 
 const cassiaListener = new CassiaNotificationService(IP);
 
-export const turnLightOff = (request, response) => {
-  console.log('Hello');
+
+
+const controlDaliDevice = (macAddress, shortAddress, command = DaliDeviceControl.DaliDeviceControlCommand.DALI_ON, directLevel = 0) => {
+
+  return new Promise(async (resolve, reject) => {
+
+    try {
+      const telegram = new DaliDeviceControl(shortAddress, command, directLevel).create();
+
+      // Send BLE message
+      const result = await CassiaEndpoints.writeBleMessage(IP, macAddress, 19, telegram, "?noresponse=1");
+
+      // Handler for incoming data
+      const handler = (data) => {
+
+        console.log(`Received data for ${macAddress}:`, data, 'DALI control device');
+
+        const reply = new DaliDeviceControlReply(data)
+
+        cassiaListener.eventEmitter.removeListener(`${macAddress}-${DaliDeviceControlReply.replyTelegram}`, handler);
+
+        resolve(createResponseWithMessage(macAddress, result, reply.toJSON()));
+
+      };
+
+      cassiaListener.eventEmitter.addListener(`${macAddress}-${DaliDeviceControlReply.replyTelegram}`, handler);
+
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+export const turnLightOff = async (request, response) => {
 
   const { mac } = request.params;
   const { shortAddress } = request.body;
 
-  console.log(shortAddress);
+  const controlDeviceResponse = await controlDaliDevice(mac, +shortAddress, DaliDeviceControl.DaliDeviceControlCommand.DALI_OFF);
 
-  const telegram = new DaliDeviceControl(`${shortAddress}00`).create();
+  const { data } = controlDeviceResponse;;
 
-  CassiaEndpoints.writeBleMessage(IP, mac, 19, telegram, '?noresponse=1')
-    .then((writeResponse) => {
+  if (data.status.ack) {
+    response.send({ message: 'Light turned off successfully', status: 'success', shortAddress: +shortAddress });
+  }
+  else {
+    response.send({ message: 'Failed to turn off the light', status: 'failed', shortAddress: +shortAddress });
+  }
 
-      if (writeResponse.status === 200) {
-        response.send({ message: 'Light turned off successfully', status: 'success', shortAddress });
-      }
-    });
+
 };
+
+export const turnOnLight = async (request, response) => {
+
+  const { mac } = request.params;
+  const { shortAddress } = request.body;
+
+  const controlDeviceResponse = await controlDaliDevice(mac, +shortAddress, DaliDeviceControl.DaliDeviceControlCommand.DALI_ON);
+
+  const { data } = controlDeviceResponse;;
+
+  if (data.status.ack) {
+    response.send({ message: 'Light turned ON successfully', status: 'success', shortAddress: +shortAddress });
+  }
+  else {
+    response.send({ message: 'Failed to turn ON the light', status: 'failed', shortAddress: +shortAddress });
+  }
+
+
+};
+
 
 export const assignLuminaryToZone = async (req, res) => {
 

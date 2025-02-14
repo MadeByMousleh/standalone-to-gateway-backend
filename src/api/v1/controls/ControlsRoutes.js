@@ -1,11 +1,14 @@
 import express from 'express';
 import { TurnLightOnOrOff } from './ControlsController.js';
-import { assignLuminaryToZone, turnLightOff } from './luminaryControl/LuminaryController.js';
+import { assignLuminaryToZone, turnLightOff, turnOnLight } from './luminaryControl/LuminaryController.js';
 
 const router = express.Router();
 
-router.get('/:mac', TurnLightOnOrOff)
+
 router.post('/:mac', turnLightOff);
+
+router.post('/:mac/on', turnOnLight);
+
 
 router.post('/:mac/zone/luminary', assignLuminaryToZone);
 

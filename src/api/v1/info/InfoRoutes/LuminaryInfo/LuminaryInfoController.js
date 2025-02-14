@@ -423,6 +423,8 @@ const turnAllDevicesOn = async (macAddress) => {
         }
     });
 }
+
+
 const gatherLuminariesInformation = async (macAddress) => {
 
     let turnAllOn = await turnAllDevicesOn(macAddress);
@@ -430,6 +432,7 @@ const gatherLuminariesInformation = async (macAddress) => {
     let amountOf102Devices = await getDali102DatabaseCount(macAddress);
 
     const commonParams = await getLuminaryCommonParameters(macAddress);
+
     const params = {
         maxLevel: commonParams.data.maxLevel,
         minLevel: commonParams.data.minLevel,
@@ -440,9 +443,11 @@ const gatherLuminariesInformation = async (macAddress) => {
         extendedFadeTime: commonParams.data.extendedFadeTime,
     }
 
+    console.log("params", params);
 
     amountOf102Devices = parseInt(amountOf102Devices.data, 16);
 
+    console.log(amountOf102Devices)
 
     const luminaries = [];
 
