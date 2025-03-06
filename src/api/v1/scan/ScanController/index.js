@@ -620,7 +620,15 @@ function sendMobileScanData(event, response) {
 
     if (adData) {
 
+        
         const nextGenDevice = new NextGenDevice(device.commonBleData.bleAddress, adData);
+
+        // if(nextGenDevice.mac === '10:B9:F7:0F:9B:A3') {
+
+        //     console.log(adData);
+        // }
+
+
 
         updateDevices(nextGenDevice);
     }
@@ -628,6 +636,11 @@ function sendMobileScanData(event, response) {
     if(scanData)
     {
         const nextGenDevice = new NextGenDevice(device.commonBleData.bleAddress, scanData);
+
+        if(nextGenDevice.mac === '10:B9:F7:0F:9B:A3') {
+
+            console.log(scanData)
+        }
 
         updateDevices(nextGenDevice);
 
