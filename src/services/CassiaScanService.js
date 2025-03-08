@@ -1,8 +1,6 @@
-import CassiaEndpoints from "../../../../thirdParty/cassia-rest-api/local/index.js";
-
-import productNumberHelper from "../../../../../helpers/extractProductNrInfo.js";
-
 import EventEmitter from "events";
+import EventSource from "eventsource";
+import productNumberHelper from "../../helpers/extractProductNrInfo.js";
 
 import { createWriteStream, existsSync, mkdirSync, readdirSync, statSync } from 'fs';
 import path, { resolve, join, dirname } from 'path';
@@ -14,57 +12,78 @@ import { finished } from 'stream/promises';
 
 import { InfluxDB, Point } from '@influxdata/influxdb-client';
 
-import { error } from "console";
-import NextGenDevice from "../../../../../models/NextgenDevice/index.js";
 
+class BleScanService {
+    static instance;
 
-import BleScanService from "../../../../services/CassiaScanService.js";
+    constructor(IP) {
+        if (BleScanService.instance) {
+            console.log("♻️  Reusing existing BleScanService instance");
+            return BleScanService.instance;
+        }
 
+        console.log("✅ Starting new BleScanService...");
+        this.IP = IP;
+        this.eventEmitter = new EventEmitter();
+        this.eventSource = new EventSource(`http://${IP}/gap/nodes?event=1&filter_mac=10:B9:F7*&timestamp=1&active=1`);
 
-const token = 'vV_E03gDMHwmt1r4242KfR7Gc_oOjdCQKdtS65Q7G5Ysz9f6jz-2hd4ubuYufslPvoPYgouPuHudaOF9ledLwg=='
-const url = 'http://localhost:8086'
+        this.eventSource.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            const commonData = new BLECommonData(
+                data.bdaddrs[0].bdaddr,
+                data.bdaddrs[0].bdaddrType,
+                data.evtType,
+                data.rssi,
+                data.chipId,
+                data.name,
+                data?.scanData,
+                data?.adData
+            );
 
-const client = new InfluxDB({ url, token })
+            const scanData = commonData.scanData && new ScanData(commonData.scanData);
+            const adData = commonData.advertisementData && new AdvertisementData(commonData.advertisementData, commonData.bleAddress);
+            const device = new Device(commonData, scanData, adData);
 
+            this.eventEmitter.emit("scanData", device);
+        };
 
+        this.eventSource.onerror = (err) => {
+            console.error("❌ Error in BleScanService:", err);
+        };
 
-let org = `Wygwam`
-let bucket = `standalone-to-bms`
-
-let writeClient = client.getWriteApi(org, bucket, 'ns')
-
-
-// Polyfill for __dirname in ES modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const IP = "192.168.40.1";
-
-const firmware = {};
-
-const devices = {};
-
-const luxEvent = new EventEmitter();
-
-
-function logCurrentTime() {
-    const now = new Date();
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    const seconds = String(now.getSeconds()).padStart(2, '0');
-
-    return `${hours}:${minutes}:${seconds}`;
-}
-
-const changeEndianness = (string) => {
-    const result = [];
-    let len = string.length - 2;
-    while (len >= 0) {
-        result.push(string.substr(len, 2));
-        len -= 2;
+        this.setupCleanup();
+        BleScanService.instance = this;
     }
-    return result.join('');
+
+    onData(cb) {
+        this.eventEmitter.on("scanData", (data) => cb(data));
+    }
+
+    close() {
+        if (BleScanService.instance) {
+            console.log("🛑 Closing BleScanService...");
+            this.eventSource.close();
+            this.eventEmitter.removeAllListeners();
+            BleScanService.instance = null;
+        }
+    }
+
+    setupCleanup() {
+        const cleanup = () => {
+            this.close();
+            console.log("🚪 Cleanup executed before exit.");
+            process.exit();
+        };
+
+        process.on("SIGINT", cleanup);   // Ctrl+C (Interrupt signal)
+        process.on("SIGTERM", cleanup);  // Termination signal
+        process.on("beforeExit", cleanup); // Before Node.js process exits
+        process.on("exit", cleanup);     // When Node.js process exits
+        process.once("SIGHUP", cleanup); // Terminal/VS Code close
+    }
 }
+
+const currentWorkingDirectory = process.cwd();
 
 
 
@@ -126,99 +145,7 @@ function writeIsLightOn(macAddress) {
 
 }
 
-
-// const writeStream = fs.createWriteStream();
-
-
-// Promisify the stream write operation to use async/await
-luxEvent.on('lux', data => {
-    // console.log(data)
-    const { macAddress, timeStamp, lux } = data;
-    // writeJsonData(macAddress, timeStamp, lux).catch(console.error);
-});
-
-// async function writeJsonData(macAddress, timeStamp, lux) {
-//     const baseDir = resolve(__dirname, '../../../../data/lux');
-//     const filePath = join(baseDir, `${macAddress}.json`);
-
-//     if (!existsSync(baseDir)) {
-//         mkdirSync(baseDir, { recursive: true });
-//     }
-
-//     const dataToWrite = JSON.stringify({ lux, timeStamp }) + '\n';
-
-//     // Use async function to write data to file
-//     if (existsSync(filePath)) {
-//         console.log("APPENDING...");
-//         await appendData(filePath, dataToWrite);
-//     } else {
-//         console.log("Writing new data...");
-//         await writeData(filePath, dataToWrite);
-//     }
-// }
-
-async function appendData(filePath, data) {
-    const writeStream = createWriteStream(filePath, { flags: 'a' });
-    writeStream.write(data);
-    await finished(writeStream);
-}
-
-async function writeData(filePath, data) {
-    const writeStream = createWriteStream(filePath);
-    writeStream.write(data);
-    await finished(writeStream);
-    console.log("New data written");
-}
-
-function listFilesInFolder(folderPath, detectorType) {
-
-    if (firmware[detectorType]) {
-        return firmware[detectorType]
-    }
-
-    let arrayOfFolders = []
-    let array = [];
-
-    try {
-
-        const files = readdirSync(folderPath);
-
-        if (!files) {
-            return [];
-        }
-
-        files.forEach(file => {
-
-            const fullPath = path.join(folderPath, file);
-
-            arrayOfFolders.push(fullPath);
-
-        })
-
-        arrayOfFolders.forEach(folder => {
-            array.push({
-                detectorType,
-                title: folder.slice(folder.length - 4, folder.length),
-                folder,
-                key: folder,
-                value: folder,
-                children: getFiles(folder, detectorType, folder.slice(folder.length - 4, folder.length)),
-            })
-        })
-
-
-        // console.log(array)
-
-        firmware[detectorType] = array;
-
-        return firmware[detectorType];
-
-
-    } catch (error) {
-        console.error(`Error reading folder: ${error.message}`);
-    }
-}
-
+const firmware = {};
 
 const getFiles = (folderPath, detectorType, version) => {
 
@@ -313,7 +240,56 @@ function getFirmwarePaths(version, productType, currentDirectorPath) {
 
 }
 
-const currentWorkingDirectory = process.cwd();
+
+function listFilesInFolder(folderPath, detectorType) {
+
+    if (firmware[detectorType]) {
+        return firmware[detectorType]
+    }
+
+    let arrayOfFolders = []
+    let array = [];
+
+    try {
+
+        const files = readdirSync(folderPath);
+
+        if (!files) {
+            return [];
+        }
+
+        files.forEach(file => {
+
+            const fullPath = path.join(folderPath, file);
+
+            arrayOfFolders.push(fullPath);
+
+        })
+
+        arrayOfFolders.forEach(folder => {
+            array.push({
+                detectorType,
+                title: folder.slice(folder.length - 4, folder.length),
+                folder,
+                key: folder,
+                value: folder,
+                children: getFiles(folder, detectorType, folder.slice(folder.length - 4, folder.length)),
+            })
+        })
+
+
+        // console.log(array)
+
+        firmware[detectorType] = array;
+
+        return firmware[detectorType];
+
+
+    } catch (error) {
+        console.error(`Error reading folder: ${error.message}`);
+    }
+}
+
 
 
 class ScanData {
@@ -343,9 +319,7 @@ class ScanData {
         this.productNumberInfo = productNumberHelper.productNumberToObject[this.productNumber];
 
         this.shortname = this.productNumberInfo && this.productNumberInfo.DetectorShortDescription + ' ' + this.productNumberInfo.DetectorType || "P48";
-
         this.firmwaresAvailable = listFilesInFolder(`${currentWorkingDirectory}/firmwares/${this.shortname.slice(0, 3)}`, this.shortname.slice(0, 3));
-
     }
 
     hexToAscii(hex) {
@@ -572,72 +546,4 @@ class Device {
     }
 }
 
-function extractLuxData(hexData) {
-
-    // Extract the last two characters
-    const hexString = hexData.slice(-2);
-
-    // Convert the hexadecimal string to an integer
-    const lux = parseInt(hexString, 16);
-
-    return lux;
-}
-
-
-function updateDevices(device) {
-
-    const exists = devices[device.mac];
-
-
-    if (exists) {
-        if (device.lux === 0 && exists.lux !== 0) {
-            devices[device.mac] = { ...device, lux: exists.lux };
-        }
-        else {
-            devices[device.mac] = { ...device };
-        }
-    }
-    else {
-        devices[device.mac] = device;
-    }
-
-}
-
-
-
-
-export const ScanForBleDevices = (request, response, next) => {
-    const bleScanService = new BleScanService(IP);
-
-console.log("We are here")
-
-    const headers = {
-        "Content-Type": "text/event-stream",
-        "Connection": "keep-alive",
-        "Cache-Control": "no-cache",
-    };
-
-    response.writeHead(200, headers);
-
-    const sendScanData = (device) => {
-        response.write(`data: ${JSON.stringify(device)}\n\n`);
-    };
-
-    bleScanService.onData(sendScanData);
-
-    response.on("close", () => {
-        console.log("Client closed connection.");
-        response.end();
-    });
-};
-
-
-
-// export const getData = (request, response, next) => {
-
-//     const { mac } = request.params;
-
-//     let device = devices[mac.toUpperCase()];
-
-//     response.status(200).send(JSON.stringify(device));
-// }
+export default BleScanService;

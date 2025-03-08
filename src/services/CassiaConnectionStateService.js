@@ -1,24 +1,24 @@
 import EventEmitter from "events";
 import EventSource from "eventsource";
 
-class CassiaNotificationService {
+class CassiaConnectionStateService {
     static instance; // Singleton instance
 
     constructor(IP) {
-        if (CassiaNotificationService.instance) {
-            return CassiaNotificationService.instance;
+        if (CassiaConnectionStateService.instance) {
+            return CassiaConnectionStateService.instance;
         }
 
         this.IP = IP;
-        this.eventSource = new EventSource(`http://${IP}/gatt/nodes?event=1`);
+        this.eventSource = new EventSource(`http://${IP}/management/nodes/connection-state`);
         this.eventEmitter = new EventEmitter();
 
         this.eventSource.onmessage = (msg) => {
-            const { id, value } = JSON.parse(msg.data);
-            const telegramType = value.slice(2, 6);
 
-            this.eventEmitter.emit(id, value);
-            this.eventEmitter.emit(`${id}-${telegramType}`, value);
+            // console.log(msg);
+            const { chipId, handle, rssi, connectionState } = JSON.parse(msg.data);
+
+            this.eventEmitter.emit('connectionData', {chipId, handle, rssi, connectionState});
 
         };
 
@@ -26,17 +26,17 @@ class CassiaNotificationService {
         this.setupCleanup();
 
         // Store singleton instance
-        CassiaNotificationService.instance = this;
+        CassiaConnectionStateService.instance = this;
     }
 
-    onData(mac, cb) {
-        this.eventEmitter.on(mac, (data) => cb(data));
+    onData(cb) {
+        this.eventEmitter.on('connectionData', (data) => cb(data));
     }
 
     close() {
-        console.log("Closing CassiaNotificationService...");
+        console.log("Closing CassiaConnectionStateService...");
         this.eventSource.close();
-        CassiaNotificationService.instance = null;
+        CassiaConnectionStateService.instance = null;
     }
 
     setupCleanup() {
@@ -56,4 +56,4 @@ class CassiaNotificationService {
     }
 }
 
-export default CassiaNotificationService;
+export default CassiaConnectionStateService;
